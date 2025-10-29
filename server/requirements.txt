@@ -17,8 +17,6 @@ langgraph
 langchain-groq
 langchain-google-genai
 python-dotenv
-langgraph-groq
-langgraph-google-genai
 
 # For asynchronous HTTP requests (used by LangChain)
 httpx
