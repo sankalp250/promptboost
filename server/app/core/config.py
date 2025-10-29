@@ -6,10 +6,11 @@ class Settings(BaseSettings):
     It automatically reads environment variables from the specified .env file.
     """
     DATABASE_URL: str
+    GROQ_API_KEY: str
+    GOOGLE_API_KEY: str
+    PROJECT_NAME: str = "PromptBoost"
+    PROJECT_DESCRIPTION: str = "Prompt Enhancement Service"
 
-    # Pydantic V2+ configuration.
-    # This explicitly tells Pydantic where to look for the .env file.
-    # It assumes that scripts are run from the project's root directory.
     model_config = SettingsConfigDict(env_file="server/.env")
 
 settings = Settings()
