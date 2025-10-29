@@ -1,0 +1,15 @@
+# Global hotkey listener
+pynput
+
+# System clipboard access
+pyperclip
+
+# System tray icon and notifications
+pystray
+plyer
+
+# HTTP client to communicate with the server
+httpx
+
+# To load configuration
+python-dotenv

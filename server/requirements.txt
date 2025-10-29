@@ -1,0 +1,24 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Pydantic (data validation, included with FastAPI but good to be explicit)
+pydantic
+pydantic-settings
+
+# LangChain and LangGraph
+langchain
+langgraph
+langchain-groq
+langchain-google-genai
+python-dotenv
+langgraph-groq
+langgraph-google-genai
+
+# For asynchronous HTTP requests (used by LangChain)
+httpx
