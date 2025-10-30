@@ -44,16 +44,14 @@ def assign_experiment_group(state: GraphState):
 def enhance_strategy_A(state: GraphState):
     """Enhancement strategy for Group A (standard)."""
     print("---NODE: ENHANCE STRATEGY A (standard)---")
-    enhanced = llm_service.get_enhanced_prompt(state["original_prompt"])
+    enhanced = llm_service.get_enhanced_prompt_strategy_A(state["original_prompt"])
     return {"enhanced_prompt": enhanced, "enhancement_strategy": "standard_v1"}
 
 def enhance_strategy_B(state: GraphState):
     """Enhancement strategy for Group B (alternative)."""
-    print("---NODE: ENHANCE STRATEGY B (alternative)---")
-    # For now, we'll just use a placeholder to prove the logic works.
-    # In the future, you could call a different LLM or use a different prompt template here.
-    enhanced = f"**Alternative Strategy B:** Consider the following aspects for '{state['original_prompt']}': [Aspect 1], [Aspect 2]."
-    return {"enhanced_prompt": enhanced, "enhancement_strategy": "alternative_v1"}
+    print("---NODE: ENHANCE STRATEGY B (structured)---")
+    enhanced = llm_service.get_enhanced_prompt_strategy_B(state["original_prompt"])
+    return {"enhanced_prompt": enhanced, "enhancement_strategy": "structured_v1"}
 
 def save_results(state: GraphState):
     """Saves both the prompt cache and the detailed analytics entry."""

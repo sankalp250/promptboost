@@ -28,13 +28,30 @@ VAGUE USER PROMPT:
 
 ENHANCED PROMPT:
 """
+# --- NEW: TEMPLATE FOR STRATEGY B ---
+STRUCTURED_PROMPT_TEMPLATE = """
+You are PromptBoost, a highly structured AI assistant.
+Your task is to take a user's vague prompt and break it down into key components and questions that need to be answered to create a high-quality final prompt.
+
+RULES:
+- Identify the core goal of the user's prompt.
+- List 3-5 critical aspects, questions, or details the user should include.
+- Format the output clearly, using markdown for lists.
+- Do NOT answer the prompt. Only deconstruct it into a better prompt.
+- The output MUST be only the enhanced prompt, with no preamble.
+
+VAGUE USER PROMPT:
+{user_prompt}
+
+ENHANCED PROMPT (breakdown format):
+"""
 
 # --- 2. INITIALIZE THE LLM PROVIDERS ---
 
 try:
     # Primary, fast LLM
     groq_chat = ChatGroq(
-        temperature=0.7,
+        temperature=1.7,
         groq_api_key=settings.GROQ_API_key,
         model_name="llama3-70b-8192"
     )
@@ -43,7 +60,7 @@ try:
     gemini_chat = ChatGoogleGenerativeAI(
         model="gemini-pro",
         google_api_key=settings.GOOGLE_API_KEY,
-        temperature=0.7
+        temperature=1.7
     )
 
     # Set up a generic LangChain "chain" for prompt enhancement
@@ -57,33 +74,53 @@ except Exception as e:
     groq_chat = None
     gemini_chat = None
 
-# --- 3. CREATE THE CORE ENHANCEMENT FUNCTION ---
+# --- 3. CREATE THE CORE ENHANCEMENT FUNCTIONS ---
 
 def get_enhanced_prompt(user_prompt: str) -> str | None:
-    """
-    Enhances a user prompt using a primary LLM (Groq) with a fallback to a secondary (Gemini).
-    """
+    """Legacy enhancement using the generic chain (kept for backward compatibility)."""
     if not groq_chat or not gemini_chat:
         logger.error("LLM services are not available.")
         return "**Enhanced by LLM:** A critical configuration error occurred on the server."
 
     try:
         logger.info(f"Attempting enhancement with primary LLM (Groq) for: '{user_prompt}'")
-        # Combine the chain with the Groq model
         chain = prompt_enhancement_chain | groq_chat
         enhanced_prompt = chain.invoke({"user_prompt": user_prompt})
         logger.info("Successfully enhanced with Groq.")
         return enhanced_prompt
-
     except Exception as e:
         logger.warning(f"Primary LLM (Groq) failed: {e}. Falling back to secondary LLM (Gemini).")
         try:
-            # Combine the chain with the Gemini model as a fallback
             chain = prompt_enhancement_chain | gemini_chat
             enhanced_prompt = chain.invoke({"user_prompt": user_prompt})
             logger.info("Successfully enhanced with Gemini.")
             return enhanced_prompt
-        
         except Exception as e2:
             logger.error(f"Secondary LLM (Gemini) also failed: {e2}")
-            return None # Return None if both fail
+            return None
+
+
+def get_enhanced_prompt_strategy_A(user_prompt: str) -> str | None:
+    """Enhances using the generic, free-form strategy."""
+    if not groq_chat or not gemini_chat:
+        return "Server configuration error."
+
+    try:
+        chain = ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE) | groq_chat | StrOutputParser()
+        return chain.invoke({"user_prompt": user_prompt})
+    except Exception:
+        chain = ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
+        return chain.invoke({"user_prompt": user_prompt})
+
+
+def get_enhanced_prompt_strategy_B(user_prompt: str) -> str | None:
+    """Enhances using a more structured, breakdown-focused strategy."""
+    if not groq_chat or not gemini_chat:
+        return "Server configuration error."
+
+    try:
+        chain = ChatPromptTemplate.from_template(STRUCTURED_PROMPT_TEMPLATE) | groq_chat | StrOutputParser()
+        return chain.invoke({"user_prompt": user_prompt})
+    except Exception:
+        chain = ChatPromptTemplate.from_template(STRUCTURED_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
+        return chain.invoke({"user_prompt": user_prompt})
