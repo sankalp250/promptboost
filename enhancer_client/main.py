@@ -1,11 +1,11 @@
 import threading
-from .enhancer.clipboard_manager import start_monitoring, stop_monitoring
+from .enhancer.clipboard_monitor import start_monitoring, stop_monitoring
 from pystray import Icon as pystrayIcon, MenuItem as item
 from PIL import Image
 import sys
 from pathlib import Path
 
-# --- TRAY ICON LOGIC IS NOW IN MAIN.PY FOR SIMPLICITY ---
+# --- TRAY ICON LOGIC ---
 
 CLIENT_ROOT = Path(__file__).resolve().parent
 ICON_PATH = CLIENT_ROOT / "assets" / "icon.png"
@@ -13,7 +13,7 @@ ICON_PATH = CLIENT_ROOT / "assets" / "icon.png"
 def on_quit_clicked(icon, item):
     """Function to handle the quit action."""
     print("Quit clicked. Shutting down...")
-    stop_monitoring() # Signal the thread to stop
+    stop_monitoring()
     icon.stop()
 
 def run_tray_icon():
@@ -29,15 +29,16 @@ def run_tray_icon():
     print("✅ System tray icon is running.")
     icon.run()
 
-if __name__ == "__main__":
+def start_client_app():
+    """
+    This is the main function called by the external launcher.
+    It sets up and runs the client application.
+    """
     print("Starting PromptBoost Client...")
     
-    # Run the clipboard monitor in a separate thread.
-    # It's a daemon thread so it will exit when the main app exits.
     monitor_thread = threading.Thread(target=start_monitoring, daemon=True)
     monitor_thread.start()
     
-    # The tray icon must run on the main thread. This blocks until "Quit" is clicked.
     run_tray_icon()
     
     print("Application has been shut down.")
