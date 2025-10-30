@@ -6,21 +6,19 @@ from app.schemas import prompt as schemas
 from sqlalchemy.orm import Session
 from app.services import llm_service
 
-# --- 1. EXPAND THE STATE ---
-# The state now holds all the information for our experiment.
+# --- 1. STATE DEFINITION (Unchanged) ---
 class GraphState(TypedDict):
     original_prompt: str
     enhanced_prompt: str | None
     from_cache: bool
     db: Session
-    # New analytics fields
     user_id: uuid.UUID
     session_id: uuid.UUID
-    prompt_id: int | None # Will be set after saving the prompt
+    prompt_id: int | None
     experiment_group: Literal["A", "B"] | None
     enhancement_strategy: str | None
 
-# --- 2. DEFINE THE NEW AND UPDATED NODES ---
+# --- 2. GRAPH NODES ---
 
 def check_cache(state: GraphState):
     """Checks the cache. Same as before."""
@@ -36,7 +34,6 @@ def check_cache(state: GraphState):
 def assign_experiment_group(state: GraphState):
     """Assigns user to Group A or B based on their user_id."""
     print("---NODE: ASSIGN EXPERIMENT GROUP---")
-    # A simple, deterministic way to split users into two groups
     group = "A" if int(state["user_id"].hex, 16) % 2 == 0 else "B"
     print(f"User {state['user_id']} assigned to Group {group}")
     return {"experiment_group": group}
@@ -53,25 +50,35 @@ def enhance_strategy_B(state: GraphState):
     enhanced = llm_service.get_enhanced_prompt_strategy_B(state["original_prompt"])
     return {"enhanced_prompt": enhanced, "enhancement_strategy": "structured_v1"}
 
+# --- UPDATED AND ROBUST 'save_results' NODE ---
 def save_results(state: GraphState):
-    """Saves both the prompt cache and the detailed analytics entry."""
+    """
+    Saves the prompt cache and analytics entry, now robust to enhancement failures.
+    """
     print("---NODE: SAVE RESULTS---")
     db = state["db"]
-    # We only save to prompt_cache if it was a miss
+    enhanced_prompt = state["enhanced_prompt"]
+
+    # --- THE CRUCIAL FIX IS HERE ---
+    # Check if the enhancement succeeded (is not None) before trying to save.
+    if enhanced_prompt is None:
+        print("---WARNING: Enhancement failed, LLM service returned None. Skipping database save.---")
+        # Return an empty dictionary to allow the graph to finish gracefully.
+        return {}
+
+    # This code below will now only run if the enhancement was successful.
     if not state["from_cache"]:
         prompt_to_cache = schemas.PromptCacheCreate(
             original_prompt=state["original_prompt"],
-            enhanced_prompt=state["enhanced_prompt"]
+            enhanced_prompt=enhanced_prompt  # Use the validated variable
         )
-        # We get the newly created prompt object back, which has the ID we need
         created_prompt_obj = crud.create_cached_prompt(db, prompt=prompt_to_cache)
         prompt_id = created_prompt_obj.id
     else:
-        # If it was a cache hit, we need to find the ID
         cached_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"])
         prompt_id = cached_prompt.id if cached_prompt else None
-    
-    # Now, save the detailed analytics entry
+
+    # Save the detailed analytics entry
     if prompt_id:
         analytics_to_save = schemas.UsageAnalyticsCreate(
             prompt_id=prompt_id,
@@ -79,13 +86,13 @@ def save_results(state: GraphState):
             session_id=state["session_id"],
             experiment_group=state["experiment_group"],
             enhancement_strategy=state["enhancement_strategy"]
-            # user_action will be set later via the /feedback endpoint
         )
         crud.create_usage_analytics_entry(db, analytics_data=analytics_to_save)
+
     return {"prompt_id": prompt_id}
 
 
-# --- 3. DEFINE THE NEW CONDITIONAL EDGES ---
+# --- 3. CONDITIONAL EDGES (Unchanged) ---
 
 def route_after_cache_check(state: GraphState) -> Literal["save_results", "assign_experiment_group"]:
     """If cache hit, save analytics. If miss, run the A/B test."""
@@ -101,7 +108,7 @@ def route_to_strategy(state: GraphState) -> Literal["enhance_strategy_A", "enhan
     else:
         return "enhance_strategy_B"
 
-# --- 4. BUILD THE NEW GRAPH ---
+# --- 4. GRAPH CONSTRUCTION (Unchanged) ---
 
 workflow = StateGraph(GraphState)
 
