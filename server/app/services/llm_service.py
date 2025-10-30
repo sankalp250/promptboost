@@ -52,7 +52,7 @@ try:
     # Primary, fast LLM
     groq_chat = ChatGroq(
         temperature=1.7,
-        groq_api_key=settings.GROQ_API_key,
+        groq_api_key=settings.GROQ_API_KEY,
         model_name="llama3-70b-8192"
     )
 
