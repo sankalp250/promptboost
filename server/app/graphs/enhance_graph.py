@@ -1,8 +1,9 @@
 from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, END
 from app.crud import prompt_cache as crud
-from app.schemas import prompt as schemas # <-- IMPORT THE SCHEMAS
+from app.schemas import prompt as schemas
 from sqlalchemy.orm import Session
+from app.services import llm_service # <-- IMPORT OUR NEW SERVICE
 
 # --- 1. Define the State ---
 class GraphState(TypedDict):
@@ -30,14 +31,26 @@ def check_cache(state: GraphState):
         print("---CACHE MISS---")
         return { "from_cache": False }
 
+# --- THIS IS THE UPDATED NODE ---
 def enhance_with_llm(state: GraphState):
-    """Placeholder for the actual LLM call."""
-    print("---NODE: ENHANCE WITH LLM (PLACEHOLDER)---")
+    """
+    Calls the external LLM service to get the enhanced prompt.
+    Replaces the old placeholder logic.
+    """
+    print("---NODE: ENHANCE WITH LLM (REAL CALL)---")
     original_prompt = state["original_prompt"]
-    
-    enhanced_version = f"**Enhanced by LLM:** {original_prompt.title()} using a sophisticated Python design pattern."
-    
+
+    # Call the function from our new service
+    enhanced_version = llm_service.get_enhanced_prompt(original_prompt)
+
+    # Handle the edge case where both Groq and Gemini fail
+    if not enhanced_version:
+        print("---ERROR: LLM enhancement failed after all fallbacks.---")
+        # We should still provide a valid string to avoid downstream errors
+        enhanced_version = f"{original_prompt}\n\n[// Enhancement failed on server, please try again.]"
+
     return {"enhanced_prompt": enhanced_version}
+
 
 def save_to_cache(state: GraphState):
     """Saves the newly enhanced prompt to the cache."""
@@ -47,13 +60,10 @@ def save_to_cache(state: GraphState):
     enhanced_prompt = state["enhanced_prompt"]
 
     if original_prompt and enhanced_prompt:
-        # --- THE FIX IS HERE ---
-        # Instead of a dict, we create a proper Pydantic schema object.
         prompt_data_to_save = schemas.PromptCacheCreate(
             original_prompt=original_prompt,
             enhanced_prompt=enhanced_prompt
         )
-        # Now we pass the correct object type to the CRUD function.
         crud.create_cached_prompt(db, prompt=prompt_data_to_save)
     return {}
 
