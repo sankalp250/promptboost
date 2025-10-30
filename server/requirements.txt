@@ -20,3 +20,5 @@ python-dotenv
 
 # For asynchronous HTTP requests (used by LangChain)
 httpx
+
+alembic
