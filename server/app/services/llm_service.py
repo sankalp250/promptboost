@@ -6,16 +6,12 @@ from langchain_core.output_parsers import StrOutputParser
 from app.core.config import settings
 import logging
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- 1. DEFINE PROMPT TEMPLATES ---
-# We'll start with a generic one, but you can add more specialized ones later
+# --- TEMPLATE FOR STRATEGY A ---
 GENERIC_PROMPT_TEMPLATE = """
-You are PromptBoost, a world-class AI assistant specialized in enhancing user prompts.
-Your goal is to take a user's vague idea and transform it into a clear, detailed, and effective prompt for another AI.
-Do NOT answer the prompt directly. Instead, rewrite it to be better.
+You are PromptBoost, a world-class AI assistant specialized in enhancing user prompts. Your goal is to take a user's vague idea and transform it into a clear, detailed, and effective prompt for another AI. Do NOT answer the prompt directly. Instead, rewrite it to be better.
 
 RULES:
 - Add specific details and context.
@@ -23,15 +19,12 @@ RULES:
 - Incorporate best practices like asking the AI to "think step-by-step".
 - The output MUST be only the enhanced prompt, with no preamble or explanation.
 
-VAGUE USER PROMPT:
-{user_prompt}
+VAGUE USER PROMPT: {user_prompt}
+ENHANCED PROMPT:"""
 
-ENHANCED PROMPT:
-"""
-# --- NEW: TEMPLATE FOR STRATEGY B ---
+# --- TEMPLATE FOR STRATEGY B ---
 STRUCTURED_PROMPT_TEMPLATE = """
-You are PromptBoost, a highly structured AI assistant.
-Your task is to take a user's vague prompt and break it down into key components and questions that need to be answered to create a high-quality final prompt.
+You are PromptBoost, a highly structured AI assistant. Your task is to take a user's vague prompt and break it down into key components and questions that need to be answered to create a high-quality final prompt.
 
 RULES:
 - Identify the core goal of the user's prompt.
@@ -40,87 +33,66 @@ RULES:
 - Do NOT answer the prompt. Only deconstruct it into a better prompt.
 - The output MUST be only the enhanced prompt, with no preamble.
 
-VAGUE USER PROMPT:
-{user_prompt}
+VAGUE USER PROMPT: {user_prompt}
+ENHANCED PROMPT (breakdown format):"""
 
-ENHANCED PROMPT (breakdown format):
-"""
 
-# --- 2. INITIALIZE THE LLM PROVIDERS ---
+# --- 2. INITIALIZE THE LLM PROVIDERS (WITH CORRECTED VALUES) ---
 
 try:
-    # Primary, fast LLM
     groq_chat = ChatGroq(
         temperature=1.7,
         groq_api_key=settings.GROQ_API_KEY,
-        model_name="llama3-70b-8192"
+        # Using a faster, more reliable model for this task
+        model_name="llama3-8b-8192"
     )
 
-    # Backup, reliable LLM
     gemini_chat = ChatGoogleGenerativeAI(
-        model="gemini-pro",
+        # Using the newer, faster Flash model
+        model="gemini-1.5-flash-latest",
         google_api_key=settings.GOOGLE_API_KEY,
+        # CORRECTED: Temperature must be between 0.0 and 1.0
         temperature=1.7
     )
-
-    # Set up a generic LangChain "chain" for prompt enhancement
-    prompt_enhancement_chain = (
-        ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE)
-        | StrOutputParser()
-    )
+    logger.info("Successfully initialized both Groq and Gemini models.")
 
 except Exception as e:
-    logger.error(f"Failed to initialize LLMs. Check API keys and dependencies: {e}")
+    logger.error(f"CRITICAL: Failed to initialize LLMs. Check API keys and model names: {e}")
     groq_chat = None
     gemini_chat = None
 
 # --- 3. CREATE THE CORE ENHANCEMENT FUNCTIONS ---
 
-def get_enhanced_prompt(user_prompt: str) -> str | None:
-    """Legacy enhancement using the generic chain (kept for backward compatibility)."""
-    if not groq_chat or not gemini_chat:
-        logger.error("LLM services are not available.")
-        return "**Enhanced by LLM:** A critical configuration error occurred on the server."
-
-    try:
-        logger.info(f"Attempting enhancement with primary LLM (Groq) for: '{user_prompt}'")
-        chain = prompt_enhancement_chain | groq_chat
-        enhanced_prompt = chain.invoke({"user_prompt": user_prompt})
-        logger.info("Successfully enhanced with Groq.")
-        return enhanced_prompt
-    except Exception as e:
-        logger.warning(f"Primary LLM (Groq) failed: {e}. Falling back to secondary LLM (Gemini).")
-        try:
-            chain = prompt_enhancement_chain | gemini_chat
-            enhanced_prompt = chain.invoke({"user_prompt": user_prompt})
-            logger.info("Successfully enhanced with Gemini.")
-            return enhanced_prompt
-        except Exception as e2:
-            logger.error(f"Secondary LLM (Gemini) also failed: {e2}")
-            return None
-
-
 def get_enhanced_prompt_strategy_A(user_prompt: str) -> str | None:
-    """Enhances using the generic, free-form strategy."""
     if not groq_chat or not gemini_chat:
         return "Server configuration error."
 
     try:
+        logger.info(f"(A) Attempting enhancement with Groq...")
         chain = ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE) | groq_chat | StrOutputParser()
         return chain.invoke({"user_prompt": user_prompt})
-    except Exception:
-        chain = ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
-        return chain.invoke({"user_prompt": user_prompt})
-
+    except Exception as e:
+        logger.warning(f"(A) Groq failed: {e}. Falling back to Gemini.")
+        try:
+            chain = ChatPromptTemplate.from_template(GENERIC_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
+            return chain.invoke({"user_prompt": user_prompt})
+        except Exception as e2:
+            logger.error(f"(A) Gemini fallback also failed: {e2}")
+            return None
 
 def get_enhanced_prompt_strategy_B(user_prompt: str) -> str | None:
-    """Enhances using a more structured, breakdown-focused strategy."""
     if not groq_chat or not gemini_chat:
         return "Server configuration error."
 
     try:
+        logger.info(f"(B) Attempting enhancement with Groq...")
         chain = ChatPromptTemplate.from_template(STRUCTURED_PROMPT_TEMPLATE) | groq_chat | StrOutputParser()
         return chain.invoke({"user_prompt": user_prompt})
-    except Exception:
-        chain = ChatPromptTemplate.from_template(STRUCTURED_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
-        return chain.invoke({"user_prompt": user_prompt})
+    except Exception as e:
+        logger.warning(f"(B) Groq failed: {e}. Falling back to Gemini.")
+        try:
+            chain = ChatPromptTemplate.from_template(STRUCTURED_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
+            return chain.invoke({"user_prompt": user_prompt})
+        except Exception as e2:
+            logger.error(f"(B) Gemini fallback also failed: {e2}")
+            return None
