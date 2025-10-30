@@ -1,16 +1,13 @@
 import pyperclip
 import time
 import logging
+import uuid # Import uuid
 from .api_client import enhance_prompt_from_api
 from .notifier import show_notification
+from .config import settings # Import our settings which now holds the user_id
 
-# This is our magic string. The app will only trigger when it sees this at the end of copied text.
-TRIGGER_SUFFIX = "!!e" 
-
-# A variable to hold the last text we saw, to prevent re-processing the same text.
+TRIGGER_SUFFIX = "!!e"
 recent_text = ""
-
-# A variable to stop the loop when the application quits.
 monitoring_active = True
 
 def process_clipboard():
@@ -20,20 +17,11 @@ def process_clipboard():
     try:
         current_text = pyperclip.paste()
     except pyperclip.PyperclipException:
-        # If the clipboard is inaccessible (e.g., holding an image), just skip.
         return
 
-    # Condition 1: Is there text?
-    # Condition 2: Is it different from the last text we processed?
-    # Condition 3: Does it end with our trigger phrase?
     if current_text and current_text != recent_text and current_text.endswith(TRIGGER_SUFFIX):
-        
         print(f"✅ Trigger phrase detected!")
-        
-        # Keep a copy of the full triggered text so we don't re-process it
         recent_text = current_text
-        
-        # Remove the trigger phrase to get the actual prompt
         prompt_to_enhance = current_text.removesuffix(TRIGGER_SUFFIX).strip()
         
         if not prompt_to_enhance:
@@ -41,15 +29,23 @@ def process_clipboard():
             return
             
         print(f"Sending to server: '{prompt_to_enhance[:50]}...'")
-        
-        # Send to the API
-        enhanced_text = enhance_prompt_from_api(prompt_to_enhance)
+
+        # --- NEW LOGIC: PASS IDS TO API ---
+        # Generate a new session_id for each unique interaction
+        session_id = uuid.uuid4() 
+        # Get the persistent user_id from our settings
+        user_id = settings.USER_ID
+
+        if not user_id:
+            # This should ideally not happen if the config setup is correct
+            print("CRITICAL: User ID not found. Aborting API call.")
+            return
+
+        enhanced_text = enhance_prompt_from_api(prompt_to_enhance, user_id=user_id, session_id=session_id)
 
         if enhanced_text:
             print("Successfully enhanced prompt. Updating clipboard.")
             pyperclip.copy(enhanced_text)
-            # We update recent_text again with the new enhanced content, so if the user
-            # copies the enhanced text, it won't trigger the process again.
             recent_text = enhanced_text
             show_notification("✨ Prompt Enhanced!", "Ready to paste.")
         else:
@@ -61,7 +57,7 @@ def start_monitoring():
     print(f"✅ Clipboard monitor started. Copy text ending with '{TRIGGER_SUFFIX}' to enhance.")
     while monitoring_active:
         process_clipboard()
-        time.sleep(0.5) # Check the clipboard every 0.5 seconds
+        time.sleep(0.5)
 
 def stop_monitoring():
     """Signals the monitoring loop to stop."""
