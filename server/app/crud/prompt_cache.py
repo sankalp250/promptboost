@@ -24,11 +24,25 @@ def create_cached_prompt(db: Session, prompt: schemas.PromptCacheCreate) -> mode
 
 # --- NEW CRUD FUNCTION FOR ANALYTICS ---
 def create_usage_analytics_entry(db: Session, analytics_data: schemas.UsageAnalyticsCreate) -> models.UsageAnalytics:
-    """
-    Creates a new entry in the usage_analytics table.
-    """
+    """Creates a new entry in the usage_analytics table."""
     db_analytics = models.UsageAnalytics(**analytics_data.model_dump())
     db.add(db_analytics)
     db.commit()
     db.refresh(db_analytics)
     return db_analytics
+
+# --- NEW CRUD FUNCTION FOR FEEDBACK ---
+def update_user_action_for_session(db: Session, session_id: uuid.UUID, user_action: models.UserAction) -> models.UsageAnalytics | None:
+    """
+    Finds a usage_analytics entry by session_id and updates its user_action.
+    """
+    # Find the most recent entry for this session ID
+    db_analytics = db.query(models.UsageAnalytics).filter(models.UsageAnalytics.session_id == session_id).order_by(models.UsageAnalytics.created_at.desc()).first()
+
+    if db_analytics:
+        db_analytics.user_action = user_action
+        db.commit()
+        db.refresh(db_analytics)
+        return db_analytics
+    
+    return None # Return None if no entry was found for that session

@@ -40,3 +40,11 @@ class UsageAnalyticsDB(UsageAnalyticsCreate):
     created_at: datetime.datetime
     class Config:
         from_attributes = True
+
+class FeedbackRequest(BaseModel):
+    session_id: uuid.UUID
+    user_action: UserAction # Will be 'accepted' or 'rejected'
+
+class FeedbackResponse(BaseModel):
+    status: str
+    message: str
