@@ -1,10 +1,11 @@
 import pyperclip
 import time
 import logging
-import uuid # Import uuid
+import uuid
 from .api_client import enhance_prompt_from_api
 from .notifier import show_notification
-from .config import settings # Import our settings which now holds the user_id
+from .config import settings
+from .state import set_last_session_id # <-- IMPORT OUR NEW FUNCTION
 
 TRIGGER_SUFFIX = "!!e"
 recent_text = ""
@@ -25,25 +26,26 @@ def process_clipboard():
         prompt_to_enhance = current_text.removesuffix(TRIGGER_SUFFIX).strip()
         
         if not prompt_to_enhance:
-            print("No actual prompt text found before the trigger. Aborting.")
+            print("No actual prompt text found. Aborting.")
             return
             
         print(f"Sending to server: '{prompt_to_enhance[:50]}...'")
 
-        # --- NEW LOGIC: PASS IDS TO API ---
-        # Generate a new session_id for each unique interaction
         session_id = uuid.uuid4() 
-        # Get the persistent user_id from our settings
         user_id = settings.USER_ID
 
         if not user_id:
-            # This should ideally not happen if the config setup is correct
-            print("CRITICAL: User ID not found. Aborting API call.")
+            print("CRITICAL: User ID not found.")
             return
 
         enhanced_text = enhance_prompt_from_api(prompt_to_enhance, user_id=user_id, session_id=session_id)
 
         if enhanced_text:
+            # --- THE NEW ADDITION IS HERE ---
+            # If we successfully get an enhancement, store its session_id.
+            set_last_session_id(session_id)
+            # ------------------------------
+
             print("Successfully enhanced prompt. Updating clipboard.")
             pyperclip.copy(enhanced_text)
             recent_text = enhanced_text

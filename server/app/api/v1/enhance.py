@@ -32,10 +32,20 @@ def enhance_prompt_endpoint(
         "db": db
     }
     
-    final_state = enhancement_graph.invoke(inputs)
-
-    return schemas.PromptEnhanceResponse(
-        original_prompt=request.original_prompt,
-        enhanced_prompt=final_state.get("enhanced_prompt", "Error: Enhancement failed."),
-        from_cache=final_state.get("from_cache", False)
-    )
+    try:
+        final_state = enhancement_graph.invoke(inputs)
+        enhanced = final_state.get("enhanced_prompt")
+        return schemas.PromptEnhanceResponse(
+            original_prompt=request.original_prompt,
+            enhanced_prompt=enhanced if isinstance(enhanced, str) and enhanced else "Error: Enhancement failed.",
+            from_cache=final_state.get("from_cache", False)
+        )
+    except Exception as e:
+        # Prevent 500s from bubbling to the client; log and return a safe payload
+        # Note: FastAPI will still produce 200 here with an error message body to keep the client resilient
+        print(f"/enhance failed: {e}")
+        return schemas.PromptEnhanceResponse(
+            original_prompt=request.original_prompt,
+            enhanced_prompt="Error: Enhancement failed.",
+            from_cache=False
+        )

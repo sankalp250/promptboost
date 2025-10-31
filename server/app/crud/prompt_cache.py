@@ -36,7 +36,7 @@ def create_usage_analytics_entry(db: Session, analytics_data: schemas.UsageAnaly
     return db_analytics
 
 def update_user_action_for_session(db: Session, session_id: uuid.UUID, user_action: models.UserAction) -> models.UsageAnalytics | None:
-    """
+    """  
     Finds a usage_analytics entry by session_id and updates its user_action.
     """
     # Find the most recent entry for this session ID
