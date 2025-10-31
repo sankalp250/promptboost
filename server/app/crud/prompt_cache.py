@@ -16,7 +16,7 @@ def create_cached_prompt(db: Session, prompt: schemas.PromptCacheCreate) -> mode
     """
     Create a new prompt cache entry in the database.
     """
-    db_prompt = models.Prompt-ache(
+    db_prompt = models.PromptCache(
         original_prompt=prompt.original_prompt,
         enhanced_prompt=prompt.enhanced_prompt
     )
