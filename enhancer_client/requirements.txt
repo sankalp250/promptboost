@@ -13,3 +13,6 @@ httpx
 
 # To load configuration
 python-dotenv
+
+# For building the executable
+pyinstaller
