@@ -1,12 +1,13 @@
 import uuid
-from typing import TypedDict, Literal
+from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from app.crud import prompt_cache as crud
 from app.schemas import prompt as schemas
 from sqlalchemy.orm import Session
 from app.services import llm_service
 
-# --- 1. STATE DEFINITION (Unchanged) ---
+# --- 1. SIMPLIFIED STATE ---
+# We no longer need experiment_group or enhancement_strategy in the active state.
 class GraphState(TypedDict):
     original_prompt: str
     enhanced_prompt: str | None
@@ -15,13 +16,11 @@ class GraphState(TypedDict):
     user_id: uuid.UUID
     session_id: uuid.UUID
     prompt_id: int | None
-    experiment_group: Literal["A", "B"] | None
-    enhancement_strategy: str | None
 
-# --- 2. GRAPH NODES ---
+# --- 2. SIMPLIFIED NODES ---
 
 def check_cache(state: GraphState):
-    """Checks the cache. Same as before."""
+    """Checks the cache."""
     print("---NODE: CHECK CACHE---")
     cached = crud.get_prompt_by_original_text(state["db"], state["original_prompt"])
     if cached:
@@ -31,105 +30,54 @@ def check_cache(state: GraphState):
         print("---CACHE MISS---")
         return {"from_cache": False}
 
-def assign_experiment_group(state: GraphState):
-    """Assigns user to Group A or B based on their user_id."""
-    print("---NODE: ASSIGN EXPERIMENT GROUP---")
-    group = "A" if int(state["user_id"].hex, 16) % 2 == 0 else "B"
-    print(f"User {state['user_id']} assigned to Group {group}")
-    return {"experiment_group": group}
+def enhance_prompt(state: GraphState):
+    """Calls the single, unified enhancement service."""
+    print("---NODE: ENHANCE PROMPT---")
+    enhanced = llm_service.get_enhanced_prompt(state["original_prompt"])
+    return {"enhanced_prompt": enhanced}
 
-def enhance_strategy_A(state: GraphState):
-    """Enhancement strategy for Group A (standard)."""
-    print("---NODE: ENHANCE STRATEGY A (standard)---")
-    enhanced = llm_service.get_enhanced_prompt_strategy_A(state["original_prompt"])
-    return {"enhanced_prompt": enhanced, "enhancement_strategy": "standard_v1"}
-
-def enhance_strategy_B(state: GraphState):
-    """Enhancement strategy for Group B (alternative)."""
-    print("---NODE: ENHANCE STRATEGY B (structured)---")
-    enhanced = llm_service.get_enhanced_prompt_strategy_B(state["original_prompt"])
-    return {"enhanced_prompt": enhanced, "enhancement_strategy": "structured_v1"}
-
-# --- UPDATED AND ROBUST 'save_results' NODE ---
 def save_results(state: GraphState):
-    """
-    Saves the prompt cache and analytics entry, now robust to enhancement failures.
-    """
+    """Saves the prompt and analytics, now without experiment data."""
     print("---NODE: SAVE RESULTS---")
     db = state["db"]
     enhanced_prompt = state["enhanced_prompt"]
 
-    # --- THE CRUCIAL FIX IS HERE ---
-    # Check if the enhancement succeeded (is not None) before trying to save.
     if enhanced_prompt is None:
-        print("---WARNING: Enhancement failed, LLM service returned None. Skipping database save.---")
-        # Return an empty dictionary to allow the graph to finish gracefully.
+        print("---WARNING: Enhancement failed. Skipping DB save.---")
         return {}
 
-    # This code below will now only run if the enhancement was successful.
-    if not state["from_cache"]:
-        prompt_to_cache = schemas.PromptCacheCreate(
-            original_prompt=state["original_prompt"],
-            enhanced_prompt=enhanced_prompt  # Use the validated variable
-        )
-        created_prompt_obj = crud.create_cached_prompt(db, prompt=prompt_to_cache)
-        prompt_id = created_prompt_obj.id
-    else:
-        cached_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"])
-        prompt_id = cached_prompt.id if cached_prompt else None
+    prompt_to_cache = schemas.PromptCacheCreate(
+        original_prompt=state["original_prompt"],
+        enhanced_prompt=enhanced_prompt
+    )
+    created_prompt_obj = crud.create_cached_prompt(db, prompt=prompt_to_cache)
+    prompt_id = created_prompt_obj.id
 
-    # Save the detailed analytics entry
-    if prompt_id:
-        analytics_to_save = schemas.UsageAnalyticsCreate(
-            prompt_id=prompt_id,
-            user_id=state["user_id"],
-            session_id=state["session_id"],
-            experiment_group=state["experiment_group"],
-            enhancement_strategy=state["enhancement_strategy"]
-        )
-        crud.create_usage_analytics_entry(db, analytics_data=analytics_to_save)
-
+    # We can still save analytics, just without the A/B fields for now.
+    analytics_to_save = schemas.UsageAnalyticsCreate(
+        prompt_id=prompt_id,
+        user_id=state["user_id"],
+        session_id=state["session_id"],
+        enhancement_strategy="engineer_v1" # We can hard-code the winning strategy
+    )
+    crud.create_usage_analytics_entry(db, analytics_data=analytics_to_save)
     return {"prompt_id": prompt_id}
 
 
-# --- 3. CONDITIONAL EDGES (Unchanged) ---
-
-def route_after_cache_check(state: GraphState) -> Literal["save_results", "assign_experiment_group"]:
-    """If cache hit, save analytics. If miss, run the A/B test."""
-    if state["from_cache"]:
-        return "save_results"
-    else:
-        return "assign_experiment_group"
-
-def route_to_strategy(state: GraphState) -> Literal["enhance_strategy_A", "enhance_strategy_B"]:
-    """Routes to the correct enhancement node based on the assigned group."""
-    if state["experiment_group"] == "A":
-        return "enhance_strategy_A"
-    else:
-        return "enhance_strategy_B"
-
-# --- 4. GRAPH CONSTRUCTION (Unchanged) ---
-
+# --- 3. BUILD THE NEW, LINEAR GRAPH ---
 workflow = StateGraph(GraphState)
 
 workflow.add_node("check_cache", check_cache)
-workflow.add_node("assign_experiment_group", assign_experiment_group)
-workflow.add_node("enhance_strategy_A", enhance_strategy_A)
-workflow.add_node("enhance_strategy_B", enhance_strategy_B)
+workflow.add_node("enhance_prompt", enhance_prompt)
 workflow.add_node("save_results", save_results)
 
+# A simple edge function to decide the next step
+def decide_next_step(state: GraphState):
+    return "enhance_prompt" if not state["from_cache"] else END
+
 workflow.set_entry_point("check_cache")
-workflow.add_conditional_edges(
-    "check_cache",
-    route_after_cache_check,
-    {"save_results": END, "assign_experiment_group": "assign_experiment_group"}
-)
-workflow.add_conditional_edges(
-    "assign_experiment_group",
-    route_to_strategy,
-    {"enhance_strategy_A": "enhance_strategy_A", "enhance_strategy_B": "enhance_strategy_B"}
-)
-workflow.add_edge("enhance_strategy_A", "save_results")
-workflow.add_edge("enhance_strategy_B", "save_results")
+workflow.add_conditional_edges("check_cache", decide_next_step)
+workflow.add_edge("enhance_prompt", "save_results")
+workflow.add_edge("save_results", END)
 
 enhancement_graph = workflow.compile()
