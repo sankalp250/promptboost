@@ -5,33 +5,42 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from app.core.config import settings
 import logging
+import re # Import the regular expression library
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- THE WINNING TEMPLATE: THE ENGINEER ---
-# We now only need this one template.
+
+# --- HELPER FUNCTION TO DETECT CONTEXT ---
+def detect_context(user_prompt):
+    """A simple helper to detect programming languages and add context."""
+    context_str = ""
+    # Use case-insensitive regex to find common languages
+    if re.search(r'\b(python|pytest|fastapi)\b', user_prompt, re.IGNORECASE):
+        return "Act as a Senior Python Developer specializing in Test-Driven Development and FastAPI."
+    if re.search(r'\b(javascript|react|js|node)\b', user_prompt, re.IGNORECASE):
+        return "Act as a Full-Stack JavaScript Developer experienced with the MERN stack."
+    if re.search(r'\b(stripe|payment)\b', user_prompt, re.IGNORECASE):
+        return "Act as a Senior Backend Engineer experienced with e-commerce payment gateways."
+    # Default persona if no specific context is found
+    return "Act as a Senior Software Engineer and AI expert."
+
+# --- THE NEW, CONTEXT-AWARE TEMPLATE ---
 ENHANCEMENT_PROMPT_TEMPLATE = """
-You are PromptBoost, an expert AI specializing in transforming vague user prompts into detailed, effective prompts for other AI models.
+**Persona:** {persona}
 
-**CRITICAL RULES:**
-1.  **DO NOT BE CONVERSATIONAL.** Do not greet the user, ask questions, or provide any conversational text.
-2.  **NEVER ANSWER THE USER'S PROMPT DIRECTLY.** Your only job is to rewrite and enhance it.
-3.  **YOUR OUTPUT MUST BE ONLY THE ENHANCED PROMPT.** No preamble like "Here is the enhanced prompt:".
-
-**EXAMPLES OF YOUR TASK:**
----
-**Vague User Prompt:** fix bug in login
-**Your Output:** Debug and resolve the issue in the user authentication flow. Investigate the `login.js` component, check for null reference errors on the user object after social sign-in, and ensure the session token is being correctly stored in browser cookies.
----
-**Vague User Prompt:** make a discord bot
-**Your Output:** Design and develop a Discord bot using Python with the discord.py library. The bot should have the following features: 1. A '!weather' command to fetch and display the current weather for a specified city using the OpenWeatherMap API. 2. A role-management system where users can self-assign roles using a '!role' command. 3. Logging functionality to record major events in a designated admin channel.
----
-
-**VAGUE USER PROMPT:**
+**User's Vague Prompt:**
 {user_prompt}
 
-**YOUR OUTPUT (ENHANCED PROMPT ONLY):**
+**Your Task:**
+Rewrite the user's vague prompt into a detailed, professional, and actionable request for an AI model.
+
+**CRITICAL RULES:**
+1.  **Embody the Persona:** Use the language and mindset of the assigned persona.
+2.  **Add Specificity:** Infer the user's needs and add technical details (libraries, function names, API endpoints, file names) that would be expected in a professional context.
+3.  **Provide Structure:** Use clear formatting like lists or code blocks where appropriate.
+4.  **DO NOT BE CONVERSATIONAL.** No greetings or chitchat.
+5.  **YOUR OUTPUT MUST BE ONLY THE FINAL, ENHANCED PROMPT.** No other text.
 """
 
 # --- Initialize LLMs (Unchanged) ---
@@ -47,19 +56,27 @@ except Exception as e:
 
 # --- A SINGLE, CONSOLIDATED ENHANCEMENT FUNCTION ---
 def get_enhanced_prompt(user_prompt: str) -> str | None:
-    """Enhances a prompt using the winning 'Engineer' strategy with a fallback."""
+    """Enhances a prompt using context detection and a persona-based template."""
     if not groq_chat or not gemini_chat:
         return "Server configuration error."
+    
+    # 1. Detect the context and select a persona
+    persona = detect_context(user_prompt)
+    logger.info(f"Detected persona: {persona}")
+    
+    # 2. Set up the LangChain chain with the template
+    prompt_template = ChatPromptTemplate.from_template(ENHANCEMENT_PROMPT_TEMPLATE)
 
+    # 3. Invoke the chain with fallback logic
     try:
         logger.info(f"Attempting enhancement with Groq...")
-        chain = ChatPromptTemplate.from_template(ENHANCEMENT_PROMPT_TEMPLATE) | groq_chat | StrOutputParser()
-        return chain.invoke({"user_prompt": user_prompt})
+        chain = prompt_template | groq_chat | StrOutputParser()
+        return chain.invoke({"user_prompt": user_prompt, "persona": persona})
     except Exception as e:
         logger.warning(f"Groq failed: {e}. Falling back to Gemini.")
         try:
-            chain = ChatPromptTemplate.from_template(ENHANCEMENT_PROMPT_TEMPLATE) | gemini_chat | StrOutputParser()
-            return chain.invoke({"user_prompt": user_prompt})
+            chain = prompt_template | gemini_chat | StrOutputParser()
+            return chain.invoke({"user_prompt": user_prompt, "persona": persona})
         except Exception as e2:
             logger.error(f"Gemini fallback also failed: {e2}")
             return None

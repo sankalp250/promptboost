@@ -43,8 +43,9 @@ def train_model():
     db.close()
 
     # We need at least a few samples of both 'accepted' and 'rejected' to train
-    if df.empty or df['user_action'].nunique() < 2 or len(df) < 10:
-        logging.warning("Not enough diverse data to train a model. Need at least 10 samples with both 'accepted' and 'rejected' actions.")
+    required_samples = 5
+    if df_joined.empty or df_joined['user_action'].nunique() < 2 or len(df_joined) < required_samples:
+        logging.warning(f"Not enough diverse data. Need at least {required_samples} samples with both 'accepted' and 'rejected' actions.")
         return
 
     # --- Feature Engineering ---

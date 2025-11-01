@@ -36,8 +36,10 @@ def enhance_prompt(state: GraphState):
     enhanced = llm_service.get_enhanced_prompt(state["original_prompt"])
     return {"enhanced_prompt": enhanced}
 
+# ... (all other code in the file is correct) ...
+
 def save_results(state: GraphState):
-    """Saves the prompt and analytics, now without experiment data."""
+    """Saves the prompt and analytics, now with 'accepted' as the default action."""
     print("---NODE: SAVE RESULTS---")
     db = state["db"]
     enhanced_prompt = state["enhanced_prompt"]
@@ -53,15 +55,21 @@ def save_results(state: GraphState):
     created_prompt_obj = crud.create_cached_prompt(db, prompt=prompt_to_cache)
     prompt_id = created_prompt_obj.id
 
-    # We can still save analytics, just without the A/B fields for now.
-    analytics_to_save = schemas.UsageAnalyticsCreate(
-        prompt_id=prompt_id,
-        user_id=state["user_id"],
-        session_id=state["session_id"],
-        enhancement_strategy="engineer_v1" # We can hard-code the winning strategy
-    )
-    crud.create_usage_analytics_entry(db, analytics_data=analytics_to_save)
+    if prompt_id:
+        analytics_to_save = schemas.UsageAnalyticsCreate(
+            prompt_id=prompt_id,
+            user_id=state["user_id"],
+            session_id=state["session_id"],
+            enhancement_strategy="engineer_v1",
+            # --- THE FIX IS HERE ---
+            # Set the default user_action to 'accepted'.
+            user_action="accepted"
+        )
+        crud.create_usage_analytics_entry(db, analytics_data=analytics_to_save)
+    
     return {"prompt_id": prompt_id}
+
+# ... (the rest of the graph build is correct) ...
 
 
 # --- 3. BUILD THE NEW, LINEAR GRAPH ---
