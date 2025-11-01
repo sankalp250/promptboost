@@ -22,3 +22,9 @@ python-dotenv
 httpx
 
 alembic
+
+# ... (keep all existing lines)
+
+# For ML Model Training
+pandas
+scikit-learn
