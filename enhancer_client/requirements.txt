@@ -16,3 +16,7 @@ python-dotenv
 
 # For building the executable
 pyinstaller
+
+# For ML Model Training
+pandas
+scikit-learn
