@@ -13,39 +13,37 @@ def get_db():
     finally:
         db.close()
 
-# --- UPDATED ENDPOINT ---
 @router.post("/enhance", response_model=schemas.PromptEnhanceResponse)
 def enhance_prompt_endpoint(
-    # The request body now expects the updated schema
     request: schemas.PromptEnhanceRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Receives a prompt with user/session IDs, runs it through the 
-    enhancement graph with A/B testing, and returns the result.
-    """
-    # The initial state for our graph now includes user and session IDs
     inputs = {
-        "original_prompt": request.original_prompt,
+        "original_prompt": request.true_original_prompt if request.is_reroll and request.true_original_prompt else request.original_prompt,
         "user_id": request.user_id,
         "session_id": request.session_id,
-        "db": db
+        "db": db,
+        "is_reroll": request.is_reroll,
+        "previous_enhancement": request.original_prompt if request.is_reroll else None
     }
     
     try:
         final_state = enhancement_graph.invoke(inputs)
         enhanced = final_state.get("enhanced_prompt")
+        
+        # Ensure enhanced_prompt is never None for Pydantic validation
+        if enhanced is None or not isinstance(enhanced, str):
+            enhanced = "Error: Enhancement failed on the server. Please check server logs."
+        
         return schemas.PromptEnhanceResponse(
             original_prompt=request.original_prompt,
-            enhanced_prompt=enhanced if isinstance(enhanced, str) and enhanced else "Error: Enhancement failed.",
+            enhanced_prompt=enhanced,
             from_cache=final_state.get("from_cache", False)
         )
     except Exception as e:
-        # Prevent 500s from bubbling to the client; log and return a safe payload
-        # Note: FastAPI will still produce 200 here with an error message body to keep the client resilient
         print(f"/enhance failed: {e}")
         return schemas.PromptEnhanceResponse(
             original_prompt=request.original_prompt,
-            enhanced_prompt="Error: Enhancement failed.",
+            enhanced_prompt=f"Error: Enhancement failed - {str(e)}",
             from_cache=False
         )

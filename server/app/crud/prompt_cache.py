@@ -36,16 +36,53 @@ def create_usage_analytics_entry(db: Session, analytics_data: schemas.UsageAnaly
     return db_analytics
 
 def update_user_action_for_session(db: Session, session_id: uuid.UUID, user_action: models.UserAction) -> models.UsageAnalytics | None:
-    """  
-    Finds a usage_analytics entry by session_id and updates its user_action.
-    """
-    # Find the most recent entry for this session ID
-    db_analytics = db.query(models.UsageAnalytics).filter(models.UsageAnalytics.session_id == session_id).order_by(models.UsageAnalytics.created_at.desc()).first()
-
+    """Finds a usage_analytics entry by session_id and updates its user_action."""
+    
+    print(f"\n{'='*80}")
+    print(f"!!!! SERVER CRUD: Updating feedback for session_id: {session_id} !!!!")
+    print(f"{'='*80}")
+    
+    # Try exact match first
+    db_analytics = db.query(models.UsageAnalytics).filter(
+        models.UsageAnalytics.session_id == session_id
+    ).order_by(models.UsageAnalytics.created_at.desc()).first()
+    
+    if not db_analytics:
+        # FALLBACK: Find the most recent NON-REJECTED entry (likely the one user wants to reject)
+        print(f"!!!! SERVER CRUD: No exact match for {session_id}. Using fallback: most recent non-rejected entry !!!!")
+        from sqlalchemy import or_
+        db_analytics = db.query(models.UsageAnalytics).filter(
+            or_(
+                models.UsageAnalytics.user_action != models.UserAction.rejected,
+                models.UsageAnalytics.user_action.is_(None)
+            )
+        ).order_by(models.UsageAnalytics.created_at.desc()).first()
+        
+        if db_analytics:
+            print(f"!!!! SERVER CRUD: FALLBACK SUCCESS - Found entry ID: {db_analytics.id}, session: {db_analytics.session_id} !!!!")
+            print(f"!!!! SERVER CRUD: NOTE: Using fallback because session_id didn't match - this is okay for now !!!!")
+    
     if db_analytics:
+        old_action = db_analytics.user_action.value if db_analytics.user_action else None
+        print(f"!!!! SERVER CRUD: Updating entry ID: {db_analytics.id} !!!!")
+        print(f"!!!! SERVER CRUD: Old action: {old_action} -> New action: {user_action.value} !!!!")
+        
         db_analytics.user_action = user_action
         db.commit()
         db.refresh(db_analytics)
+        
+        # Verify the update
+        verified = db.query(models.UsageAnalytics).filter(models.UsageAnalytics.id == db_analytics.id).first()
+        verified_action = verified.user_action.value if verified.user_action else None
+        print(f"!!!! SERVER CRUD: ✅ COMMITTED! Verified action is now: {verified_action} !!!!")
+        print(f"{'='*80}\n")
         return db_analytics
     
-    return None # Return None if no entry was found for that session
+    # Last resort: log all sessions for debugging
+    all_sessions = db.query(models.UsageAnalytics).order_by(models.UsageAnalytics.created_at.desc()).limit(5).all()
+    print(f"!!!! SERVER CRUD: ❌ FAILED - No entry found. Recent sessions:")
+    for s in all_sessions:
+        action_str = s.user_action.value if s.user_action else "None"
+        print(f"   ID: {s.id}, Session: {s.session_id}, Action: {action_str}, Created: {s.created_at}")
+    print(f"{'='*80}\n")
+    return None

@@ -11,6 +11,8 @@ class PromptEnhanceRequest(PromptBase):
     # The client now sends these IDs with each request
     user_id: uuid.UUID
     session_id: uuid.UUID
+    is_reroll: bool = False  # Flag to indicate if this is a reroll request
+    true_original_prompt: str | None = None  # The actual original prompt for rerolls
 
 class PromptEnhanceResponse(BaseModel):
     original_prompt: str
