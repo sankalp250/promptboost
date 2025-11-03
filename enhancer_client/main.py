@@ -1,6 +1,6 @@
 """
-PromptBoost Client - Web-based dialog version (NO TKINTER!)
-Much more reliable than tkinter dialogs.
+PromptBoost Client - Windows Toast Notification Version
+Native, non-intrusive notifications with action buttons!
 """
 import pyperclip
 import time
@@ -10,6 +10,7 @@ import threading
 from PIL import Image, ImageDraw
 import pystray
 import sys
+import platform
 
 # Import from other modules
 from enhancer_client.enhancer.api_client import enhance_prompt_from_api, send_feedback_to_api
@@ -20,8 +21,19 @@ from enhancer_client.enhancer.state import (
     set_last_prompts,
 )
 
-# Import web dialog
-from enhancer_client.web_dialog import start_web_server, show_enhancement_in_browser
+# Import toast notifications (Windows only)
+if platform.system() == 'Windows':
+    try:
+        from enhancer_client.toast_dialog import show_toast_notification, show_simple_toast
+        TOAST_AVAILABLE = True
+        print("✅ Windows Toast Notifications available")
+    except ImportError as e:
+        print(f"⚠️ Toast notifications not available: {e}")
+        print("   Install with: pip install winotify")
+        TOAST_AVAILABLE = False
+else:
+    TOAST_AVAILABLE = False
+    print(f"⚠️ Toast notifications only available on Windows (detected: {platform.system()})")
 
 # Constants
 TRIGGER_SUFFIX_ENHANCE = "!!e"
@@ -78,6 +90,8 @@ def process_clipboard():
             set_last_session_id(session_id)
             set_last_prompts(prompt_to_enhance, enhanced_text)
             print("✅ Successfully enhanced prompt!")
+            
+            # Update clipboard FIRST (so it's ready to paste)
             pyperclip.copy(enhanced_text)
             recent_text = enhanced_text
             
@@ -87,10 +101,14 @@ def process_clipboard():
                 show_notification("✨ Code Detected", "Prompt unchanged (code bypass)")
                 return
 
-            # Show enhancement in browser
-            print("🌐 Opening browser with enhanced prompt...")
-            show_enhancement_in_browser(enhanced_text, session_id, prompt_to_enhance)
-            show_notification("✨ Prompt Enhanced!", "Check your browser")
+            # Show toast notification with Accept/Reject buttons
+            print("🔔 Showing toast notification...")
+            if TOAST_AVAILABLE:
+                show_toast_notification(enhanced_text, session_id, prompt_to_enhance)
+            else:
+                # Fallback to regular notification if toast not available
+                show_notification("✨ Prompt Enhanced!", "Enhancement copied to clipboard")
+                print("⚠️ Toast notifications not available - using fallback")
             
         else:
             print("❌ Enhancement failed.")
@@ -151,13 +169,24 @@ def on_quit_tray(icon, item):
 def setup_tray_icon():
     """Setup and return the system tray icon."""
     icon_image = create_icon_image()
-    menu = pystray.Menu(
+    
+    menu_items = [
         pystray.MenuItem("PromptBoost is running", lambda: None, enabled=False),
         pystray.MenuItem(f"Trigger: {TRIGGER_SUFFIX_ENHANCE}", lambda: None, enabled=False),
+    ]
+    
+    # Add toast status to menu
+    if TOAST_AVAILABLE:
+        menu_items.append(pystray.MenuItem("✅ Toast notifications enabled", lambda: None, enabled=False))
+    else:
+        menu_items.append(pystray.MenuItem("⚠️ Toast notifications unavailable", lambda: None, enabled=False))
+    
+    menu_items.extend([
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", on_quit_tray)
-    )
+    ])
     
+    menu = pystray.Menu(*menu_items)
     icon = pystray.Icon("PromptBoost", icon_image, "PromptBoost", menu)
     return icon
 
@@ -177,11 +206,15 @@ def start_client_app():
     print("="*60)
     print(f"👤 User ID: {settings.USER_ID}")
     print(f"🌐 API URL: {settings.API_BASE_URL}")
-    print("="*60 + "\n")
+    print(f"💻 OS: {platform.system()}")
     
-    # Start web server for dialogs
-    print("🚀 Starting web dialog server...")
-    start_web_server()
+    if TOAST_AVAILABLE:
+        print("🔔 Toast Notifications: ENABLED ✅")
+    else:
+        print("🔔 Toast Notifications: UNAVAILABLE ⚠️")
+        print("   (Fallback: System notifications)")
+    
+    print("="*60 + "\n")
     
     # Start clipboard monitoring in background thread
     monitor_thread = threading.Thread(target=clipboard_monitor_loop, daemon=True)
@@ -192,7 +225,10 @@ def start_client_app():
     
     print("✅ PromptBoost is now running!")
     print(f"📋 Copy text ending with '{TRIGGER_SUFFIX_ENHANCE}' to enhance")
-    print("🌐 Browser will open automatically when ready")
+    if TOAST_AVAILABLE:
+        print("🔔 Toast notification will appear when ready")
+    else:
+        print("🔔 System notification will appear when ready")
     print("❌ Right-click tray icon → Quit to exit\n")
     
     # Run the tray icon (blocks until quit)
