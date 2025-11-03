@@ -12,15 +12,17 @@
    - Server uses LLM (Groq/Gemini) to enhance the prompt
    - Enhanced prompt replaces clipboard content
    - Transforms vague prompts into detailed, actionable prompts
+   - A dialog box appears with Accept/Reject options
 
-2. **Reroll/Alternative Enhancements** (Keyboard: `Ctrl+Shift+R`)
-   - After getting an enhancement, user can request a different version
-   - System marks previous as "rejected"
-   - Gets a new enhancement with different wording/structure
-   - Uses higher temperature (0.9) for more variation
+2. **Accept/Reject Dialog**
+   - After getting an enhancement, a dialog box appears automatically
+   - Users can accept the enhancement if they like it
+   - Users can reject and get a different version if they don't like it
+   - System marks previous as "rejected" when getting a new version
+   - Uses higher temperature (0.9) for more variation in new versions
 
 3. **Feedback System**
-   - Users can reject enhancements (Ctrl+Shift+X)
+   - Users can accept or reject enhancements through the dialog
    - Tracks user preferences for ML model training
    - Collects data to improve enhancement quality
 
@@ -34,7 +36,7 @@
 **Client Side:**
 - Windows desktop app (tray icon)
 - Monitors clipboard for `!!e` suffix
-- Keyboard shortcuts for feedback/reroll
+- Dialog-based feedback system
 - Sends requests to server API
 
 **Server Side:**
@@ -47,8 +49,7 @@
 ### Current Features
 
 ✅ Clipboard monitoring for `!!e` enhancement
-✅ Keyboard shortcut for reroll (`Ctrl+Shift+R`)
-✅ Keyboard shortcut for rejection (`Ctrl+Shift+X`)
+✅ Accept/Reject dialog for feedback and reroll
 ✅ Quality-based retry mechanism
 ✅ State management (session tracking)
 ✅ Database caching (temporarily disabled for data collection)
@@ -58,11 +59,7 @@
 
 ### Critical Issues
 
-1. **`!!d` Clipboard Trigger Not Working** ❌
-   - Current implementation unreliable
-   - **SOLUTION**: Use keyboard shortcut instead (Ctrl+Shift+R) - DONE ✅
-
-2. **State Persistence**
+1. **State Persistence**
    - Sometimes loses track of original prompt
    - Need better error handling
 
@@ -78,7 +75,7 @@
    - Acceptance/rejection rates
    - Quality metrics
 
-3. **Enhanced Reroll**
+3. **Enhanced Dialog Options**
    - Multiple reroll strategies (conservative vs creative)
    - Side-by-side comparison
    - Save favorite versions
