@@ -1,4 +1,7 @@
-# module-level imports and constants
+"""
+Complete client-side implementation with tray icon and dialog support.
+This file contains all the necessary components for the PromptBoost client.
+"""
 import pyperclip
 import time
 import logging
@@ -7,34 +10,38 @@ import tkinter as tk
 from tkinter import messagebox
 import queue
 import threading
-from .api_client import enhance_prompt_from_api, send_feedback_to_api
-from .notifier import show_notification
-from .config import settings
-from .state import (
+from PIL import Image, ImageDraw
+import pystray
+import sys
+
+# Import from other modules
+from enhancer_client.enhancer.api_client import enhance_prompt_from_api, send_feedback_to_api
+from enhancer_client.enhancer.notifier import show_notification
+from enhancer_client.enhancer.config import settings
+from enhancer_client.enhancer.state import (
     set_last_session_id,
     set_last_prompts,
     get_last_original_prompt,
     get_last_session_id
 )
 
+# Constants
 TRIGGER_SUFFIX_ENHANCE = "!!e"
 recent_text = ""
 monitoring_active = True
+tray_icon = None
 
-# --- FIX: THREAD-SAFE QUEUE ---
-# Queue to pass dialog requests from background thread to main thread
+# --- THREAD-SAFE QUEUE ---
 dialog_queue = queue.Queue()
 
-# --- FIX 1: THE TKINTER ROOT ---
-# Create a single, hidden, persistent root window for tkinter.
-# This solves the bug where the dialog only appears once.
+# --- TKINTER ROOT ---
 try:
     root = tk.Tk()
-    root.withdraw()  # Hide the main window
+    root.withdraw()
 except Exception as e:
     print(f"CRITICAL: Failed to initialize tkinter. Is a display available? {e}")
-    # Handle environments where tkinter can't run (e.g., SSH session)
     root = None
+
 
 def display_dialog(enhanced_text, session_id, original_prompt):
     """Display a modal Accept/Reject dialog and handle reroll inside the dialog."""
@@ -45,14 +52,11 @@ def display_dialog(enhanced_text, session_id, original_prompt):
         return
 
     try:
-        # --- FIX 1 (Continued): Use Toplevel ---
-        # Create a Toplevel window, which is a child of the main 'root'.
         dialog = tk.Toplevel(root)
         dialog.title("PromptBoost - Accept or Reject?")
         dialog.geometry("600x400")
         dialog.resizable(True, True)
         
-        # Make this dialog stay on top and grab focus
         dialog.attributes('-topmost', True)
         dialog.lift()
         dialog.focus_force()
@@ -104,14 +108,13 @@ def display_dialog(enhanced_text, session_id, original_prompt):
             print("📤 Requesting different enhancement...")
             
             new_enhanced_text = enhance_prompt_from_api(
-                prompt_text=original_prompt,  # Correct logic: send original prompt
+                prompt_text=original_prompt,
                 user_id=user_id,
                 session_id=new_session_id,
                 is_reroll=True,
                 original_prompt=original_prompt
             )
             
-            # First, destroy the current dialog
             dialog.quit()
             dialog.destroy()
 
@@ -121,7 +124,6 @@ def display_dialog(enhanced_text, session_id, original_prompt):
                 pyperclip.copy(new_enhanced_text)
                 
                 show_notification("🔄 Different Enhancement!", "Previous marked as rejected.")
-                # Recursively call display_dialog for the new enhancement
                 display_dialog(new_enhanced_text, new_session_id, original_prompt)
             else:
                 messagebox.showerror("Error", "Failed to get different enhancement.")
@@ -157,7 +159,6 @@ def display_dialog(enhanced_text, session_id, original_prompt):
         y = (dialog.winfo_screenheight() // 2) - (height // 2)
         dialog.geometry(f"{width}x{height}+{x}+{y}")
 
-        # Use wait_window to make it a modal dialog
         dialog.wait_window()
         return True
 
@@ -166,16 +167,14 @@ def display_dialog(enhanced_text, session_id, original_prompt):
         show_notification("✨ Prompt Enhanced!", "Dialog failed to show. Enhancement is in clipboard.")
         return False
 
+
 def process_clipboard():
-    # --- FIX 2: GLOBAL VARIABLE ---
-    # We must use 'global' to modify the 'recent_text'
-    # variable in the module's scope.
+    """Process clipboard for enhancement triggers."""
     global recent_text
     
     try:
         current_text = pyperclip.paste()
     except Exception as e:
-        # print(f"Clipboard error: {e}")
         return
         
     if not isinstance(current_text, str):
@@ -185,7 +184,6 @@ def process_clipboard():
     recent_stripped = recent_text.strip()
 
     if current_stripped != recent_stripped and current_stripped.endswith(TRIGGER_SUFFIX_ENHANCE):
-        # This assignment now correctly updates the global variable
         recent_text = current_text
         prompt_to_enhance = current_stripped.removesuffix(TRIGGER_SUFFIX_ENHANCE).strip()
         
@@ -212,18 +210,12 @@ def process_clipboard():
             set_last_prompts(prompt_to_enhance, enhanced_text)
             print("✅ Successfully enhanced prompt. Updating clipboard.")
             pyperclip.copy(enhanced_text)
-            
-            # This assignment also updates the global variable
             recent_text = enhanced_text
             
-            # --- CHECK FOR BYPASS ---
-            # If the server bypassed (returned original text), don't show dialog.
             if enhanced_text.strip() == prompt_to_enhance.strip():
                 print("--- Server bypassed enhancement (likely code). Dialog skipped. ---")
                 return
 
-            # --- FIX: USE QUEUE INSTEAD OF DIRECT CALL ---
-            # Put the dialog request in the queue for the main thread to handle
             print("💡 Queuing dialog request for main thread...")
             dialog_queue.put({
                 'enhanced_text': enhanced_text,
@@ -234,12 +226,12 @@ def process_clipboard():
             print("❌ Enhancement failed.")
             show_notification("🚫 Enhancement Failed", "Check server connection and logs.")
             recent_text = ""
-        return
+
 
 def check_dialog_queue():
     """
     Check if there are any dialog requests in the queue and show them.
-    MUST be called from the main thread (where the tray icon runs).
+    MUST be called from the main thread.
     """
     try:
         while not dialog_queue.empty():
@@ -254,52 +246,146 @@ def check_dialog_queue():
     except Exception as e:
         print(f"❌ ERROR processing dialog queue: {e}")
 
-def start_monitoring():
-    """
-    Start the clipboard monitoring loop in a background thread.
-    This should be called to initialize the monitoring.
-    """
+
+def clipboard_monitor_loop():
+    """Background thread function that monitors clipboard."""
+    global monitoring_active
     print("Clipboard monitoring started...")
     print(f"   Use '{TRIGGER_SUFFIX_ENHANCE}' to enhance a prompt")
     
-    def monitor_loop():
-        global monitoring_active
-        while monitoring_active:
-            try:
-                process_clipboard()
-                time.sleep(0.5)
-            except KeyboardInterrupt:
-                print("\nStopping monitor...")
-                stop_monitoring()
-            except Exception as e:
-                print(f"ERROR in monitor loop: {e}")
-                time.sleep(2)  # Prevent rapid-fire errors
+    while monitoring_active:
+        try:
+            process_clipboard()
+            time.sleep(0.5)
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"ERROR in monitor loop: {e}")
+            time.sleep(2)
     
-    # Start monitoring in a daemon thread
-    monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
-    monitor_thread.start()
-    print("✅ Clipboard monitoring thread started")
-
-def stop_monitoring():
-    global monitoring_active
-    monitoring_active = False
     print("Clipboard monitoring stopped.")
 
-# --- FOR STANDALONE TESTING ONLY ---
-# If you run this file directly (not from tray), it will start a simple tkinter loop
+
+def create_icon_image():
+    """Create a simple icon for the system tray."""
+    width = 64
+    height = 64
+    color1 = "#4CAF50"
+    color2 = "#45a049"
+    
+    image = Image.new('RGB', (width, height), color1)
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        (width // 4, height // 4, width * 3 // 4, height * 3 // 4),
+        fill=color2
+    )
+    
+    return image
+
+
+def on_quit_tray(icon, item):
+    """Handle quit from tray menu."""
+    global monitoring_active, tray_icon
+    print("\n🛑 Shutting down PromptBoost...")
+    monitoring_active = False
+    if icon:
+        icon.stop()
+    if root:
+        try:
+            root.quit()
+        except:
+            pass
+    sys.exit(0)
+
+
+def setup_tray_icon():
+    """Setup and return the system tray icon."""
+    icon_image = create_icon_image()
+    menu = pystray.Menu(
+        pystray.MenuItem("PromptBoost is running", lambda: None, enabled=False),
+        pystray.MenuItem(f"Trigger: {TRIGGER_SUFFIX_ENHANCE}", lambda: None, enabled=False),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Quit", on_quit_tray)
+    )
+    
+    icon = pystray.Icon("PromptBoost", icon_image, "PromptBoost", menu)
+    return icon
+
+
+def tray_icon_main_loop(icon):
+    """
+    Main loop for the tray icon. This runs in the main thread and
+    periodically checks the dialog queue.
+    """
+    icon.visible = True
+    print("\n✅ PromptBoost is running in the system tray!")
+    print(f"📋 Copy text ending with '{TRIGGER_SUFFIX_ENHANCE}' to enhance it")
+    print("🔔 A dialog will appear when enhancement is ready")
+    print("❌ Right-click the tray icon and select 'Quit' to exit\n")
+    
+    while monitoring_active and icon.visible:
+        try:
+            # Check for dialog requests (CRITICAL!)
+            check_dialog_queue()
+            
+            # Update tkinter
+            if root:
+                root.update()
+            
+            time.sleep(0.1)
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"ERROR in main loop: {e}")
+            time.sleep(1)
+
+
+def start_client_app():
+    """
+    Main entry point to start the PromptBoost client.
+    Returns the monitor thread.
+    """
+    global tray_icon, monitoring_active
+    
+    if not settings.USER_ID:
+        print("❌ CRITICAL: User ID not found. Cannot start application.")
+        return None
+    
+    print(f"👤 User ID: {settings.USER_ID}")
+    print(f"🌐 API URL: {settings.API_BASE_URL}")
+    
+    # Start clipboard monitoring in background thread
+    monitor_thread = threading.Thread(target=clipboard_monitor_loop, daemon=True)
+    monitor_thread.start()
+    
+    # Setup and run tray icon in main thread
+    tray_icon = setup_tray_icon()
+    
+    # Run the tray icon with our custom loop
+    tray_icon.run(setup=tray_icon_main_loop)
+    
+    return monitor_thread
+
+
+def stop_tray_icon():
+    """Stop the tray icon and cleanup."""
+    global monitoring_active, tray_icon
+    monitoring_active = False
+    if tray_icon:
+        tray_icon.stop()
+    if root:
+        try:
+            root.quit()
+            root.destroy()
+        except:
+            pass
+
+
+# For standalone testing
 if __name__ == "__main__":
     try:
-        start_monitoring()
-        print("Running standalone - press Ctrl+C to stop")
-        
-        # Simple main loop that checks the queue
-        while monitoring_active:
-            if root:
-                check_dialog_queue()
-                root.update()
-            time.sleep(0.1)
-            
+        print("Starting PromptBoost in standalone mode...")
+        start_client_app()
     except KeyboardInterrupt:
-        stop_monitoring()
-        if root:
-            root.destroy()
+        print("\n\n🛑 Shutting down...")
+        stop_tray_icon()
