@@ -20,3 +20,5 @@ pyinstaller
 # For ML Model Training
 pandas
 scikit-learn
+
+flask
