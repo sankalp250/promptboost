@@ -183,7 +183,7 @@ def get_enhanced_prompt(user_prompt: str, is_reroll: bool = False, previous_enha
     
     # Modify template for rerolls
     if is_reroll and previous_enhancement:
-        reroll_template = ENHANCEMENT_PROMPT_TEMPLATE + "\n\n<CRITICAL_REROLL_INSTRUCTION>\nThe user has requested a DIFFERENT enhancement. The previous enhancement was:\n\n{previous_enhancement}\n\nYour task: Provide a DISTINCTLY DIFFERENT enhancement. Use different wording, structure, and approach. Do not simply rephrase the previous version.\n</CRITICAL_REROLL_INSTRUCTION>"
+        reroll_template = ENHANCEMENT_PROMPT_TEMPLATE + "\n\n<CRITICAL_REROLL_INSTRUCTION>\n⚠️ THE USER HAS REJECTED THE PREVIOUS ENHANCEMENT AND REQUESTED A COMPLETELY DIFFERENT ONE. ⚠️\n\nThe previous enhancement (which was REJECTED) was:\n\n{previous_enhancement}\n\n⚠️ YOUR TASK: Generate a DISTINCTLY DIFFERENT enhancement that:\n1. Uses COMPLETELY DIFFERENT wording and phrasing\n2. Uses a DIFFERENT structure and organization\n3. Approaches the problem from a DIFFERENT angle or perspective\n4. Does NOT simply rephrase or rearrange the previous version\n5. Provides a FRESH, UNIQUE enhancement that stands apart from the rejected one\n\nDO NOT return anything similar to the previous enhancement above. Be creative and provide a genuinely different approach.\n</CRITICAL_REROLL_INSTRUCTION>"
         prompt_template = ChatPromptTemplate.from_template(reroll_template)
         template_vars = {"user_prompt": user_prompt, "persona": persona, "previous_enhancement": previous_enhancement}
     else:
@@ -192,7 +192,16 @@ def get_enhanced_prompt(user_prompt: str, is_reroll: bool = False, previous_enha
 
     try:
         logger.info(f"Attempting enhancement with Primary LLM (Groq)... {'(REROLL)' if is_reroll else ''}")
-        chain = prompt_template | primary_llm | StrOutputParser()
+        # Use higher temperature for rerolls to encourage more variation
+        llm_to_use = primary_llm
+        if is_reroll:
+            # Create a new LLM instance with higher temperature for rerolls
+            llm_to_use = ChatGroq(
+                temperature=1.0,  # Higher temperature for more variation in rerolls
+                groq_api_key=settings.GROQ_API_KEY,
+                model_name="llama-3.1-8b-instant"
+            )
+        chain = prompt_template | llm_to_use | StrOutputParser()
         raw_output = chain.invoke(template_vars)
         cleaned = clean_llm_output(raw_output)
         logger.info(f"Raw output length: {len(raw_output)}, Cleaned length: {len(cleaned)}")
@@ -202,8 +211,16 @@ def get_enhanced_prompt(user_prompt: str, is_reroll: bool = False, previous_enha
         # Try fallback if available
         if fallback_llm:
             try:
-                logger.info(f"Attempting fallback with Gemini...")
-                chain = prompt_template | fallback_llm | StrOutputParser()
+                logger.info(f"Attempting fallback with Gemini... {'(REROLL)' if is_reroll else ''}")
+                # Use higher temperature for rerolls
+                fallback_llm_to_use = fallback_llm
+                if is_reroll:
+                    fallback_llm_to_use = ChatGoogleGenerativeAI(
+                        model="gemini-1.5-flash-latest",
+                        google_api_key=settings.GOOGLE_API_KEY,
+                        temperature=0.9  # Higher temperature for rerolls
+                    )
+                chain = prompt_template | fallback_llm_to_use | StrOutputParser()
                 raw_output = chain.invoke(template_vars)
                 cleaned = clean_llm_output(raw_output)
                 logger.info(f"Raw output length: {len(raw_output)}, Cleaned length: {len(cleaned)}")
