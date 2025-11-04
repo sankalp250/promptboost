@@ -21,25 +21,19 @@ from enhancer_client.enhancer.state import (
     set_last_prompts,
 )
 
-# Import toast notifications (Windows only)
-if platform.system() == 'Windows':
-    try:
-        from enhancer_client.toast_dialog import show_toast_notification, show_simple_toast
-        TOAST_AVAILABLE = True
-        print("✅ Windows Toast Notifications available")
-    except ImportError as e:
-        print(f"⚠️ Toast notifications not available: {e}")
-        print("   Install with: pip install winotify")
-        TOAST_AVAILABLE = False
-else:
-    TOAST_AVAILABLE = False
-    print(f"⚠️ Toast notifications only available on Windows (detected: {platform.system()})")
+# Import hotkey feedback system
+from enhancer_client.hotkey_feedback import (
+    show_enhancement_notification, 
+    start_hotkey_listener, 
+    stop_hotkey_listener
+)
 
 # Constants
 TRIGGER_SUFFIX_ENHANCE = "!!e"
 recent_text = ""
 monitoring_active = True
 tray_icon = None
+TOAST_AVAILABLE = False  # Set to False by default as fallback notification is implemented
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
