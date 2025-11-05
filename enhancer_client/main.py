@@ -1,6 +1,6 @@
 """
-PromptBoost Client - Windows Toast Notification Version
-Native, non-intrusive notifications with action buttons!
+PromptBoost Client - Dialog Box Version
+Native Windows dialog with Accept/Reject buttons!
 """
 import pyperclip
 import time
@@ -21,19 +21,14 @@ from enhancer_client.enhancer.state import (
     set_last_prompts,
 )
 
-# Import hotkey feedback system
-from enhancer_client.hotkey_feedback import (
-    show_enhancement_notification, 
-    start_hotkey_listener, 
-    stop_hotkey_listener
-)
+# Import NEW dialog feedback system
+from enhancer_client.dialog_feedback import show_enhancement_dialog
 
 # Constants
 TRIGGER_SUFFIX_ENHANCE = "!!e"
 recent_text = ""
 monitoring_active = True
 tray_icon = None
-TOAST_AVAILABLE = False  # Set to False by default as fallback notification is implemented
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,14 +90,9 @@ def process_clipboard():
                 show_notification("✨ Code Detected", "Prompt unchanged (code bypass)")
                 return
 
-            # Show toast notification with Accept/Reject buttons
-            print("🔔 Showing toast notification...")
-            if TOAST_AVAILABLE:
-                show_toast_notification(enhanced_text, session_id, prompt_to_enhance)
-            else:
-                # Fallback to regular notification if toast not available
-                show_notification("✨ Prompt Enhanced!", "Enhancement copied to clipboard")
-                print("⚠️ Toast notifications not available - using fallback")
+            # Show dialog box with Accept/Reject buttons
+            print("🔔 Showing dialog box...")
+            show_enhancement_dialog(enhanced_text, session_id, prompt_to_enhance)
             
         else:
             print("❌ Enhancement failed.")
@@ -167,18 +157,10 @@ def setup_tray_icon():
     menu_items = [
         pystray.MenuItem("PromptBoost is running", lambda: None, enabled=False),
         pystray.MenuItem(f"Trigger: {TRIGGER_SUFFIX_ENHANCE}", lambda: None, enabled=False),
-    ]
-    
-    # Add toast status to menu
-    if TOAST_AVAILABLE:
-        menu_items.append(pystray.MenuItem("✅ Toast notifications enabled", lambda: None, enabled=False))
-    else:
-        menu_items.append(pystray.MenuItem("⚠️ Toast notifications unavailable", lambda: None, enabled=False))
-    
-    menu_items.extend([
+        pystray.MenuItem("✅ Dialog box enabled", lambda: None, enabled=False),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", on_quit_tray)
-    ])
+    ]
     
     menu = pystray.Menu(*menu_items)
     icon = pystray.Icon("PromptBoost", icon_image, "PromptBoost", menu)
@@ -201,13 +183,7 @@ def start_client_app():
     print(f"👤 User ID: {settings.USER_ID}")
     print(f"🌐 API URL: {settings.API_BASE_URL}")
     print(f"💻 OS: {platform.system()}")
-    
-    if TOAST_AVAILABLE:
-        print("🔔 Toast Notifications: ENABLED ✅")
-    else:
-        print("🔔 Toast Notifications: UNAVAILABLE ⚠️")
-        print("   (Fallback: System notifications)")
-    
+    print("🔔 Dialog Box: ENABLED ✅")
     print("="*60 + "\n")
     
     # Start clipboard monitoring in background thread
@@ -219,10 +195,7 @@ def start_client_app():
     
     print("✅ PromptBoost is now running!")
     print(f"📋 Copy text ending with '{TRIGGER_SUFFIX_ENHANCE}' to enhance")
-    if TOAST_AVAILABLE:
-        print("🔔 Toast notification will appear when ready")
-    else:
-        print("🔔 System notification will appear when ready")
+    print("🔔 Dialog box will appear when ready")
     print("❌ Right-click tray icon → Quit to exit\n")
     
     # Run the tray icon (blocks until quit)
