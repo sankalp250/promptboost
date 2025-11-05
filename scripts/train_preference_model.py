@@ -48,13 +48,13 @@ def load_feedback_data(db: Session) -> pd.DataFrame:
 def train_model():
     """
     Main function to load data, train the preference model, and save the artifacts.
-    Optimized for small datasets (5 accepted + 5 rejected samples).
+    Requires at least 50 accepted and 50 rejected samples.
     """
     db = SessionLocal()
     df = load_feedback_data(db)
     db.close()
 
-    # Check for minimum requirements: at least 5 accepted and 5 rejected
+    # Check for minimum requirements: at least 50 accepted and 50 rejected
     if df.empty:
         logging.warning("No feedback data found. Please generate some feedback data first.")
         return
@@ -66,7 +66,7 @@ def train_model():
     
     logging.info(f"Found {accepted_count} accepted and {rejected_count} rejected samples.")
     
-    min_samples_per_class = 5
+    min_samples_per_class = 50
     if accepted_count < min_samples_per_class or rejected_count < min_samples_per_class:
         logging.warning(
             f"Not enough data to train. Need at least {min_samples_per_class} accepted and "
@@ -81,8 +81,8 @@ def train_model():
     X = df['text_features']
 
     # --- Model Training ---
-    # For small datasets (<= 20 samples), train on all data without splitting
-    # This gives the model maximum data to learn from
+    # For small datasets (e.g., <= 20 samples), train on all data without splitting.
+    # This gives the model maximum data to learn from.
     use_train_test_split = len(df) > 20
     
     if use_train_test_split:

@@ -46,6 +46,12 @@
 - ML quality prediction model
 - Database for caching and analytics
 
+### Model Training
+
+- The project includes a script (`scripts/train_preference_model.py`) to train a preference model based on user feedback (accept/reject).
+- This model is used in the **Quality Filter** to predict if an enhancement will be accepted.
+- **Training Data Requirement**: The model requires a minimum of **50 accepted** and **50 rejected** samples to ensure a more robust and reliable model.
+
 ### Current Features
 
 ✅ Clipboard monitoring for `!!e` enhancement
