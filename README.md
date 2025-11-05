@@ -44,21 +44,31 @@ An AI-powered prompt enhancement tool that helps users improve their prompts for
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
 
-### Deploy to Render (Public Access)
+### Deploy to Railway (Public Access) ⭐ Recommended
 
-Deploy your API to Render so it's accessible to everyone:
+Deploy your API to Railway so it's accessible to everyone:
 
-1. **Follow the [Render Deployment Guide](RENDER_DEPLOYMENT.md)**
-2. **Get your public API URL** (e.g., `https://your-app.onrender.com`)
+1. **Follow the [Railway Quick Start Guide](RAILWAY_QUICK_START.md)** (5 minutes)
+2. **Get your public API URL** (e.g., `https://your-app.up.railway.app`)
 3. **Update client configuration** (see [CLIENT_SETUP.md](CLIENT_SETUP.md))
 
-**Quick Render Steps:**
-- Create PostgreSQL database on Render
-- Create Web Service (Docker)
+**Quick Railway Steps:**
+- Create new project from GitHub repo
+- Add PostgreSQL database
 - Set environment variables
-- Deploy!
+- Deploy automatically!
 
-See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for complete instructions.
+**Why Railway?**
+- ✅ No database limit on free tier
+- ✅ $5/month credit included
+- ✅ Automatic HTTPS
+- ✅ Simpler setup
+
+See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete instructions.
+
+### Alternative: Deploy to Render
+
+You can also deploy to Render. See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for instructions.
 
 ## Architecture
 

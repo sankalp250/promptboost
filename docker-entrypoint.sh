@@ -1,10 +1,11 @@
 #!/bin/bash
 set -e
 
-# Check if we're on Render (Render provides PORT environment variable)
+# Check if we're on a cloud platform (they provide PORT environment variable)
+# This works for Render, Railway, Heroku, and other platforms
 if [ -n "$PORT" ]; then
-    echo "Detected Render environment..."
-    # On Render, database is already available via DATABASE_URL
+    echo "Detected cloud environment (Render/Railway/Heroku)..."
+    # On cloud platforms, database is already available via DATABASE_URL
     # No need to wait for it
     echo "Running database migrations..."
     cd /app
