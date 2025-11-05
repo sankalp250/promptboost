@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: promptboost-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-promptboost}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-promptboost123}
+      POSTGRES_DB: ${POSTGRES_DB:-promptboost}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-promptboost}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - promptboost-network
+
+  # FastAPI Server
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: promptboost-server
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-promptboost}:${POSTGRES_PASSWORD:-promptboost123}@db:5432/${POSTGRES_DB:-promptboost}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      PROJECT_NAME: ${PROJECT_NAME:-PromptBoost}
+      PROJECT_DESCRIPTION: ${PROJECT_DESCRIPTION:-Prompt Enhancement Service}
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Mount ML models directory (optional, for hot-reloading models)
+      - ./server/app/ml_models:/app/app/ml_models
+    networks:
+      - promptboost-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  promptboost-network:
+    driver: bridge

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.api.v1 import enhance as enhance_api, feedback as feedback_api
 from app.core.config import settings
@@ -21,6 +22,16 @@ app = FastAPI(
     description=settings.PROJECT_DESCRIPTION,
     version="0.1.0",
     lifespan=lifespan # <-- Add this line
+)
+
+# Add CORS middleware to allow cross-origin requests
+# This is useful if you want to use the API from web applications
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Routers (unchanged)

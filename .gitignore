@@ -1,26 +1,50 @@
-# Virtual Environment
-venv/
-.venv/
-env/
-.env
-
-# Python cache
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
 
-# IDE and OS files
-.idea/
-.vscode/
-*.swp
-*~
-.DS_Store
+# Environment variables
+.env
+.env.local
+.env.*.local
 
-# Local settings
-.env.*local
-
-# PyInstaller files
+# Build artifacts
 build/
 dist/
 *.spec
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.dockerignore
+
+# ML Models (optional - uncomment if you don't want to commit models)
+# server/app/ml_models/*.joblib
+
+# Client user config
+enhancer_client/user_config.json

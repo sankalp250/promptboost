@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: promptboost-server
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free  # Change to 'starter' or 'standard' for production
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # Will be set from PostgreSQL service
+      - key: GROQ_API_KEY
+        sync: false  # Set in Render dashboard
+      - key: GOOGLE_API_KEY
+        sync: false  # Set in Render dashboard
+      - key: PROJECT_NAME
+        value: PromptBoost
+      - key: PROJECT_DESCRIPTION
+        value: Prompt Enhancement Service
+    healthCheckPath: /
+
+databases:
+  - name: promptboost-db
+    databaseName: promptboost
+    user: promptboost
+    plan: free  # Change to 'starter' or 'standard' for production
