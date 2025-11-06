@@ -44,31 +44,33 @@ An AI-powered prompt enhancement tool that helps users improve their prompts for
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
 
-### Deploy to Railway (Public Access) ⭐ Recommended
+### Deploy to Fly.io (Public Access) ⭐ Recommended - FREE!
 
-Deploy your API to Railway so it's accessible to everyone:
+Deploy your API to Fly.io - **100% free** with PostgreSQL included:
 
-1. **Follow the [Railway Quick Start Guide](RAILWAY_QUICK_START.md)** (5 minutes)
-2. **Get your public API URL** (e.g., `https://your-app.up.railway.app`)
+1. **Follow the [Fly.io Quick Start Guide](FLY_QUICK_START.md)** (5 minutes)
+2. **Get your public API URL** (e.g., `https://your-app.fly.dev`)
 3. **Update client configuration** (see [CLIENT_SETUP.md](CLIENT_SETUP.md))
 
-**Quick Railway Steps:**
-- Create new project from GitHub repo
-- Add PostgreSQL database
+**Quick Fly.io Steps:**
+- Install Fly CLI
+- Create PostgreSQL database
+- Launch your app
 - Set environment variables
-- Deploy automatically!
+- Deploy!
 
-**Why Railway?**
-- ✅ No database limit on free tier
-- ✅ $5/month credit included
-- ✅ Automatic HTTPS
-- ✅ Simpler setup
+**Why Fly.io?**
+- ✅ **100% Free** - No credit card required
+- ✅ **PostgreSQL Included** - Free database
+- ✅ **Docker Support** - Uses your existing Dockerfile
+- ✅ **Automatic HTTPS** - SSL included
+- ✅ **3 Shared VMs** - Generous free tier
 
-See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete instructions.
+See [FLY_DEPLOYMENT.md](FLY_DEPLOYMENT.md) for complete instructions.
 
-### Alternative: Deploy to Render
+### Alternative Hosting Options
 
-You can also deploy to Render. See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for instructions.
+See [FREE_HOSTING_OPTIONS.md](FREE_HOSTING_OPTIONS.md) for other free alternatives.
 
 ## Architecture
 

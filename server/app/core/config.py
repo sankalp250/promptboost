@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "PromptBoost"
     PROJECT_DESCRIPTION: str = "Prompt Enhancement Service"
 
-    model_config = SettingsConfigDict(env_file=ENV_FILE_PATH)
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_PATH,
+        extra='ignore'  # Ignore extra fields from .env file (like POSTGRES_USER, etc.)
+    )
 
 settings = Settings()
