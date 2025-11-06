@@ -40,10 +40,10 @@ RUN sed 's|script_location = %(here)s/server/alembic|script_location = alembic|'
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-# Expose the port the app runs on
+# Expose port (Render will set PORT env var automatically)
 EXPOSE 8000
 
-# Health check
+# Health check (for local Docker - Render uses its own health check)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/ || exit 1
 
