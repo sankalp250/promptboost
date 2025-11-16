@@ -2,6 +2,21 @@
 PromptBoost Client - Dialog Box Version
 Native Windows dialog with Accept/Reject buttons!
 """
+import sys
+from pathlib import Path
+
+# Fix imports: Add parent directory to path if running from enhancer_client directory
+# This must be done BEFORE any imports that use 'enhancer_client'
+_current_file = Path(__file__).resolve()
+_current_dir = _current_file.parent
+_parent_dir = _current_dir.parent
+
+# Check if we're running from enhancer_client directory (not as a module)
+# If the parent directory is not in sys.path, add it
+if str(_parent_dir) not in sys.path:
+    sys.path.insert(0, str(_parent_dir))
+
+# Now we can import standard libraries and our modules
 import pyperclip
 import time
 import logging
@@ -9,7 +24,6 @@ import uuid
 import threading
 from PIL import Image, ImageDraw
 import pystray
-import sys
 import platform
 
 # Import from other modules

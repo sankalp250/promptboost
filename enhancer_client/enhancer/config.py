@@ -8,11 +8,27 @@ CLIENT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE_PATH = CLIENT_ROOT / ".env"
 USER_CONFIG_PATH = CLIENT_ROOT / "user_config.json" # Our new config file
 
+# Fix BOM issue: Read .env file and remove BOM if present, then write it back
+if ENV_FILE_PATH.exists():
+    try:
+        content = ENV_FILE_PATH.read_text(encoding='utf-8-sig')  # utf-8-sig automatically strips BOM
+        if content.startswith('\ufeff'):
+            # If BOM still present, remove it and rewrite
+            content = content.lstrip('\ufeff')
+            ENV_FILE_PATH.write_text(content, encoding='utf-8')
+    except Exception:
+        pass  # If we can't fix it, Pydantic will try to handle it
+
 class Settings(BaseSettings):
     API_BASE_URL: str = "http://localhost:8000/api/v1"
     USER_ID: uuid.UUID | None = None # Add user_id to our settings
 
-    model_config = SettingsConfigDict(env_file=ENV_FILE_PATH)
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_PATH,
+        env_file_encoding='utf-8-sig',  # utf-8-sig handles BOM automatically
+        case_sensitive=False,
+        extra='ignore'  # Ignore extra fields in .env file
+    )
 
 def load_or_create_user_id() -> uuid.UUID:
     """
