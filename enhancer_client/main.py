@@ -81,6 +81,7 @@ def process_clipboard():
             return
 
         print("📤 Sending to server for enhancement...")
+        print("⏳ This may take 10-60 seconds (LLM processing + potential retries)...")
         enhanced_text = enhance_prompt_from_api(
             prompt_text=prompt_to_enhance,
             user_id=user_id,

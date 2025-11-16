@@ -22,12 +22,27 @@ def enhance_prompt_from_api(
     }
     try:
         logging.info(f"Sending prompt to API for user {user_id}: '{prompt_text[:50]}...' (reroll: {is_reroll})")
-        response = httpx.post(enhance_url, json=payload, timeout=30.0)
+        # Increased timeout to 120 seconds to handle LLM API calls + potential retries
+        # LLM calls can take 10-30 seconds, and the workflow can retry up to 3 times
+        response = httpx.post(enhance_url, json=payload, timeout=60.0)
         response.raise_for_status()
         data = response.json()
         return data.get("enhanced_prompt")
     except httpx.TimeoutException:
-        logging.error("Request to enhancement API timed out.")
+        logging.error("Request to enhancement API timed out after 120 seconds.")
+        logging.error("This may happen if the LLM API is slow or the server is processing multiple retries.")
+        return None
+    except httpx.ConnectError as e:
+        logging.error(f"Failed to connect to enhancement API: {e}")
+        logging.error(f"Please check that the backend is running at: {enhance_url}")
+        return None
+    except httpx.HTTPStatusError as e:
+        logging.error(f"HTTP error from enhancement API: {e.response.status_code}")
+        try:
+            error_body = e.response.json()
+            logging.error(f"Error details: {error_body}")
+        except:
+            logging.error(f"Error response: {e.response.text[:200]}")
         return None
     except Exception as exc:
         logging.error(f"Error during enhancement request: {exc}")
