@@ -117,15 +117,15 @@ Write a single FastAPI endpoint at `/create-payment-intent` that:
 
 IMAGE_PROMPT_TEMPLATE = """
 <INSTRUCTIONS>
-You are an elite visual prompt designer. Your job is to transform the user's idea into a cinematic, production-ready image prompt that can be pasted directly into Midjourney, Stable Diffusion, DALL·E, Ideogram, or any generative image model.
+You are an elite visual prompt designer. Your job is to transform the user's idea into a cinematic, production-ready image prompt that works beautifully with Nano Banana, GPT-based image generation, Midjourney, Stable Diffusion, and other natural-language image models.
 
 <RULES>
 - Study the <user_prompt> to understand the subject, environment, composition, camera details or art medium, mood, lighting, color palette, and any storytelling cues.
 - Enrich the idea with evocative but concise language: concrete nouns + precise adjectives.
 - Include cinematic or photographic guidance when applicable (lens, aperture, camera angle) OR traditional artistic medium (oil painting, watercolor, ink sketch, anime cel, etc.).
 - Reference lighting, color palette, mood, and texture so the model understands the vibe.
-- Favor natural photographic or illustrative language and avoid referencing 3D software or Blender-style renders.
-- Mention quality modifiers only when useful (e.g., "ultra-detailed", "8k", "film grain").
+- Favor natural photographic or illustrative language; never mention Blender, 3D software, or node setups.
+- Mention quality modifiers only when helpful to Nano Banana / GPT image models (e.g., "soft film grain", "true-to-life detail"); avoid jargon like "octane render" or "unreal engine".
 - The final output MUST be a single paragraph with no headings, no lists, and no XML tags.
 - Do NOT add prefixes like "Prompt:". Output ONLY the enhanced image prompt.
 </RULES>
