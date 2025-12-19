@@ -137,7 +137,7 @@ def quality_filter(state: GraphState):
     # Predict acceptance probability
     probability = ml_inference_service.predict_acceptance_probability(original, enhanced)
     
-    print(f"---Quality Score: {probability:.4f} (threshold: 0.60)---")
+    print(f"---Quality Score: {probability:.4f} (threshold: 0.40)---")
     
     return {"quality_score": probability, "retry_count": state.get("retry_count", 0)}
 
@@ -161,11 +161,11 @@ def after_quality_check(state: GraphState):
     # Limit retries to prevent infinite loops (max 3 attempts)
     retry_count = state.get("retry_count", 0) or 0
     
-    if quality < 0.60 and retry_count < 3:
+    if quality < 0.40 and retry_count < 1:
         print(f"---RETRY #{retry_count + 1}: Quality too low, trying again---")
         return "enhance_prompt"  # Loop back to enhance (will increment retry_count)
     else:
-        if retry_count >= 3:
+        if retry_count >= 1:
             print("---MAX RETRIES REACHED: Saving anyway---")
         return "save_results"  # Proceed to save
 

@@ -1,5 +1,16 @@
 import sys
 import signal
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    try:
+        # Python 3.7+ way to reconfigure encoding without replacing the stream
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, OSError):
+        # Fallback: just ignore encoding issues
+        pass
+
 from enhancer_client.main import start_client_app, stop_tray_icon
 
 def signal_handler(sig, frame):
