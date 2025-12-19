@@ -2,22 +2,42 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 import uuid # Import uuid
 import json # Import json for saving/loading the id
+import sys
+import os
 
 # --- NEW: Define where to save the user config ---
-CLIENT_ROOT = Path(__file__).resolve().parent.parent
-ENV_FILE_PATH = CLIENT_ROOT / ".env"
-USER_CONFIG_PATH = CLIENT_ROOT / "user_config.json" # Our new config file
+# Handle PyInstaller frozen exe paths
+def get_app_dir():
+    """Get the directory where the application/exe is located."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled exe - use the exe's directory
+        return Path(sys.executable).parent
+    else:
+        # Running as script - use the enhancer_client directory
+        return Path(__file__).resolve().parent.parent
 
-# Fix BOM issue: Read .env file and remove BOM if present, then write it back
-if ENV_FILE_PATH.exists():
-    try:
-        content = ENV_FILE_PATH.read_text(encoding='utf-8-sig')  # utf-8-sig automatically strips BOM
-        if content.startswith('\ufeff'):
-            # If BOM still present, remove it and rewrite
-            content = content.lstrip('\ufeff')
-            ENV_FILE_PATH.write_text(content, encoding='utf-8')
-    except Exception:
-        pass  # If we can't fix it, Pydantic will try to handle it
+APP_DIR = get_app_dir()
+CLIENT_ROOT = Path(__file__).resolve().parent.parent if not getattr(sys, 'frozen', False) else APP_DIR
+
+# For bundled resources (.env), check in the bundle first, then app directory
+def get_env_file_path():
+    """Get the path to .env file, checking bundle first."""
+    if getattr(sys, 'frozen', False):
+        # Check if .env exists next to the exe
+        exe_env = APP_DIR / ".env"
+        if exe_env.exists():
+            return exe_env
+        # Check in enhancer_client folder next to exe
+        client_env = APP_DIR / "enhancer_client" / ".env"
+        if client_env.exists():
+            return client_env
+        # Default to exe directory
+        return exe_env
+    else:
+        return CLIENT_ROOT / ".env"
+
+ENV_FILE_PATH = get_env_file_path()
+USER_CONFIG_PATH = APP_DIR / "user_config.json"  # Always save user config next to exe/script
 
 class Settings(BaseSettings):
     API_BASE_URL: str = "http://localhost:8000/api/v1"

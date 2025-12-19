@@ -1,8 +1,8 @@
 import sys
 import signal
 
-# Fix Windows console encoding for emoji support
-if sys.platform == 'win32':
+# Fix Windows console encoding for emoji support (only if console exists)
+if sys.platform == 'win32' and sys.stdout is not None and sys.stderr is not None:
     try:
         # Python 3.7+ way to reconfigure encoding without replacing the stream
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')

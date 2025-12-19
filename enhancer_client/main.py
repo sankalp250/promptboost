@@ -16,11 +16,13 @@ _parent_dir = _current_dir.parent
 if str(_parent_dir) not in sys.path:
     sys.path.insert(0, str(_parent_dir))
 
-# Fix Windows console encoding for emoji support
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Fix Windows console encoding for emoji support (only if console exists)
+if sys.platform == 'win32' and sys.stdout is not None and sys.stderr is not None:
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, OSError):
+        pass  # Ignore if reconfigure not available or fails
 
 # Now we can import standard libraries and our modules
 import pyperclip
