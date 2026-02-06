@@ -209,6 +209,11 @@ def start_client_app():
     print("🔔 Dialog Box: ENABLED ✅")
     print("="*60 + "\n")
     
+    # Start server warm-up in background
+    from enhancer_client.enhancer.api_client import warmup_api
+    warmup_thread = threading.Thread(target=warmup_api, daemon=True)
+    warmup_thread.start()
+
     # Start clipboard monitoring in background thread
     monitor_thread = threading.Thread(target=clipboard_monitor_loop, daemon=True)
     monitor_thread.start()

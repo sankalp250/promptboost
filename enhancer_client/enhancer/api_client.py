@@ -101,3 +101,28 @@ def send_feedback_to_api(session_id: uuid.UUID, action: str) -> bool:
         print(f"❌ CLIENT: Failed to send feedback - {str(e)}")
         logging.error(f"FATAL: Failed to send feedback for session {session_id}: {e}")
         return False
+
+def warmup_api():
+    """
+    Sends a lightweight request to the API to wake it up (serverless cold start).
+    Should be called in a background thread on app startup.
+    """
+    # Simply hitting the base URL or a health endpoint to trigger a cold boot
+    # We strip '/api/v1' to hit the root if possible, or just hit the base
+    try:
+        base = settings.API_BASE_URL.replace("/api/v1", "")
+        # Remove trailing slash if present
+        if base.endswith("/"):
+            base = base[:-1]
+        
+        warmup_url = f"{base}/" 
+        print(f"🔥 Warmup: Pinging {warmup_url} to wake up server...")
+        
+        # Short timeout - we just want to trigger the boot, don't necessarily need to wait for full success
+        # if the server is sleeping, it might take time, but the request itself initiates the wake-up
+        httpx.get(warmup_url, timeout=5.0)
+        print("🔥 Warmup: Server pinged successfully.")
+    except Exception as e:
+        # It's expected to fail or timeout if server is deeply asleep or URL logic is slightly off
+        # The important thing is the network packet was sent
+        print(f"🔥 Warmup: Ping sent (result: {e})")
