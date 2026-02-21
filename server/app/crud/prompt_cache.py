@@ -5,11 +5,19 @@ from app.schemas import prompt as schemas
 
 # ... (the rest of the file is correct and does not need to be changed) ...
 
-def get_prompt_by_original_text(db: Session, original_prompt: str) -> models.UsageAnalytics | None:
+def get_prompt_by_original_text(
+    db: Session, original_prompt: str, project_id: str | None = None
+) -> models.PromptCache | None:
     """
-    Retrieve a cached prompt from the database by its original text.
+    Retrieve a cached prompt by original text and optional project_id.
+    When project_id is set, cache is project-scoped; otherwise global (project_id IS NULL).
     """
-    return db.query(models.PromptCache).filter(models.PromptCache.original_prompt == original_prompt).first()
+    q = db.query(models.PromptCache).filter(models.PromptCache.original_prompt == original_prompt)
+    if project_id is not None:
+        q = q.filter(models.PromptCache.project_id == project_id)
+    else:
+        q = q.filter(models.PromptCache.project_id.is_(None))
+    return q.first()
 
 
 def create_cached_prompt(db: Session, prompt: schemas.PromptCacheCreate) -> models.PromptCache:
@@ -18,12 +26,46 @@ def create_cached_prompt(db: Session, prompt: schemas.PromptCacheCreate) -> mode
     """
     db_prompt = models.PromptCache(
         original_prompt=prompt.original_prompt,
-        enhanced_prompt=prompt.enhanced_prompt
+        enhanced_prompt=prompt.enhanced_prompt,
+        project_id=prompt.project_id,
     )
     db.add(db_prompt)
     db.commit()
     db.refresh(db_prompt)
     return db_prompt # <-- Return the new object with its ID
+
+def create_prompt_history_entry(
+    db: Session, data: schemas.PromptHistoryCreate
+) -> models.PromptHistory:
+    """Append an entry to prompt history for a project (for LLM continuity)."""
+    entry = models.PromptHistory(**data.model_dump())
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def get_recent_prompts_for_project(
+    db: Session,
+    project_id: str,
+    user_id: uuid.UUID | None = None,
+    limit: int = 5,
+) -> list[tuple[str, str]]:
+    """
+    Return the most recent (original_prompt, enhanced_prompt) pairs for the project.
+    If user_id is provided, filter by user; otherwise return for any user in the project.
+    Ordered by created_at desc.
+    """
+    q = (
+        db.query(models.PromptHistory.original_prompt, models.PromptHistory.enhanced_prompt)
+        .filter(models.PromptHistory.project_id == project_id)
+    )
+    if user_id is not None:
+        q = q.filter(models.PromptHistory.user_id == user_id)
+    q = q.order_by(models.PromptHistory.created_at.desc()).limit(limit)
+    rows = q.all()
+    return [(r[0], r[1]) for r in rows]
+
 
 def create_usage_analytics_entry(db: Session, analytics_data: schemas.UsageAnalyticsCreate) -> models.UsageAnalytics:
     """
