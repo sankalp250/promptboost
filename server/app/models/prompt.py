@@ -26,16 +26,34 @@ class PromptCache(Base):
     """
     SQLAlchemy model for the prompt_cache table.
     Stores original and enhanced prompts to avoid re-calling the LLM API.
+    When project_id is set, cache is project-scoped (same prompt can have different enhancements per project).
     """
     __tablename__ = "prompt_cache"
 
     id = Column(Integer, primary_key=True, index=True)
-    original_prompt = Column(Text, nullable=False, unique=True, index=True)
+    project_id = Column(String(64), nullable=True, index=True)  # optional; when set, cache is per-project
+    original_prompt = Column(Text, nullable=False, index=True)
     enhanced_prompt = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # Relationship to usage_analytics
     analytics = relationship("UsageAnalytics", back_populates="prompt")
+
+
+class PromptHistory(Base):
+    """
+    Per-project prompt history for continuity: recent (original, enhanced) pairs
+    so the LLM can maintain context across enhancements in the same project.
+    """
+    __tablename__ = "prompt_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(String(64), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    session_id = Column(UUID(as_uuid=True), nullable=True)
+    original_prompt = Column(Text, nullable=False)
+    enhanced_prompt = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 class UsageAnalytics(Base):
     """

@@ -11,6 +11,7 @@ from enhancer_client.enhancer.api_client import enhance_prompt_from_api, send_fe
 from enhancer_client.enhancer.config import settings
 from enhancer_client.enhancer.state import set_last_session_id, set_last_prompts
 from enhancer_client.enhancer.notifier import show_notification
+from enhancer_client.enhancer.project_context import gather_project_context
 
 # Store current enhancement data
 _current_enhancement = {
@@ -133,7 +134,9 @@ def show_dialog_on_main_thread(enhanced_text: str, session_id: uuid.UUID, origin
             user_id=user_id,
             session_id=new_session_id,
             is_reroll=True,
-            original_prompt=original_prompt
+            original_prompt=original_prompt,
+            workspace_path=settings.WORKSPACE_PATH,
+            project_context=gather_project_context(settings.WORKSPACE_PATH) if settings.WORKSPACE_PATH else None,
         )
         
         if new_enhanced_text:

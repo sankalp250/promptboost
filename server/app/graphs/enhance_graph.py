@@ -18,6 +18,9 @@ class GraphState(TypedDict):
     previous_enhancement: str | None
     quality_score: float | None
     retry_count: int | None
+    project_id: str | None
+    recent_prompts: list[tuple[str, str]] | None  # (original, enhanced) for continuity
+    project_context: str | None
 
 def check_cache(state: GraphState):
     print("---NODE: CHECK CACHE---")
@@ -50,18 +53,25 @@ def check_cache(state: GraphState):
 
 def enhance_prompt(state: GraphState):
     print("---NODE: ENHANCE PROMPT---")
-    # Increment retry count
     retry_count = (state.get("retry_count", 0) or 0) + 1
-    
+    recent = state.get("recent_prompts") or []
+    project_ctx = state.get("project_context") or ""
+
     if state.get("is_reroll", False):
         print("---REROLL MODE: Requesting different enhancement---")
         enhanced = llm_service.get_enhanced_prompt(
             state["original_prompt"],
             is_reroll=True,
-            previous_enhancement=state.get("previous_enhancement")
+            previous_enhancement=state.get("previous_enhancement"),
+            recent_prompts=recent if recent else None,
+            project_context=project_ctx if project_ctx else None,
         )
     else:
-        enhanced = llm_service.get_enhanced_prompt(state["original_prompt"])
+        enhanced = llm_service.get_enhanced_prompt(
+            state["original_prompt"],
+            recent_prompts=recent if recent else None,
+            project_context=project_ctx if project_ctx else None,
+        )
     return {"enhanced_prompt": enhanced, "retry_count": retry_count}
 
 def save_results(state: GraphState):
@@ -77,13 +87,11 @@ def save_results(state: GraphState):
         print("---WARNING: Enhancement failed. Skipping DB save.---")
         return {}
 
-    # Check if this prompt already exists in cache (to avoid unique constraint violation)
-    existing_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"])
-    
+    project_id = state.get("project_id")
+    existing_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"], project_id=project_id)
+
     if existing_prompt:
-        # Prompt already cached - update it with new enhancement or use existing
         print(f"---Prompt already in cache (ID: {existing_prompt.id}). Using existing cache entry.---")
-        # Optionally update the enhanced_prompt if it's different (for rerolls)
         if existing_prompt.enhanced_prompt != enhanced_prompt:
             print(f"---Updating cache with new enhancement (reroll detected)---")
             existing_prompt.enhanced_prompt = enhanced_prompt
@@ -91,27 +99,38 @@ def save_results(state: GraphState):
             db.refresh(existing_prompt)
         prompt_id = existing_prompt.id
     else:
-        # Create new cache entry
         print(f"---Creating new cache entry---")
         prompt_to_cache = schemas.PromptCacheCreate(
             original_prompt=state["original_prompt"],
-            enhanced_prompt=enhanced_prompt
+            enhanced_prompt=enhanced_prompt,
+            project_id=project_id,
         )
         try:
             created_prompt_obj = crud.create_cached_prompt(db, prompt=prompt_to_cache)
             prompt_id = created_prompt_obj.id
         except Exception as e:
-            # Handle unique constraint violation gracefully
             if "unique constraint" in str(e).lower() or "duplicate key" in str(e).lower():
                 print(f"---Cache entry already exists (race condition). Retrieving existing entry.---")
-                existing_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"])
+                existing_prompt = crud.get_prompt_by_original_text(db, state["original_prompt"], project_id=project_id)
                 if existing_prompt:
                     prompt_id = existing_prompt.id
                 else:
                     print(f"---ERROR: Could not find or create cache entry.---")
                     return {}
             else:
-                raise  # Re-raise if it's a different error
+                raise
+
+    if project_id:
+        crud.create_prompt_history_entry(
+            db,
+            schemas.PromptHistoryCreate(
+                project_id=project_id,
+                user_id=state["user_id"],
+                session_id=state["session_id"],
+                original_prompt=state["original_prompt"],
+                enhanced_prompt=enhanced_prompt,
+            ),
+        )
 
     if prompt_id:
         analytics_to_save = schemas.UsageAnalyticsCreate(

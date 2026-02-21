@@ -10,7 +10,9 @@ def enhance_prompt_from_api(
     user_id: uuid.UUID,
     session_id: uuid.UUID,
     is_reroll: bool = False,
-    original_prompt: str | None = None
+    original_prompt: str | None = None,
+    workspace_path: str | None = None,
+    project_context: str | None = None,
 ) -> str | None:
     enhance_url = f"{settings.API_BASE_URL}/enhance"
     payload = {
@@ -18,8 +20,12 @@ def enhance_prompt_from_api(
         "user_id": str(user_id),
         "session_id": str(session_id),
         "is_reroll": is_reroll,
-        "true_original_prompt": original_prompt if is_reroll and original_prompt else None
+        "true_original_prompt": original_prompt if is_reroll and original_prompt else None,
     }
+    if workspace_path:
+        payload["workspace_path"] = workspace_path
+    if project_context:
+        payload["project_context"] = project_context
     try:
         logging.info(f"Sending prompt to API for user {user_id}: '{prompt_text[:50]}...' (reroll: {is_reroll})")
         # Increased timeout to 120 seconds to handle LLM API calls + potential retries

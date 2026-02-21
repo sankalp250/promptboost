@@ -13,6 +13,11 @@ class PromptEnhanceRequest(PromptBase):
     session_id: uuid.UUID
     is_reroll: bool = False  # Flag to indicate if this is a reroll request
     true_original_prompt: str | None = None  # The actual original prompt for rerolls
+    # Project-scoped memory: optional workspace or project id
+    workspace_path: str | None = None
+    project_id: str | None = None
+    # Optional project context (e.g. README, package.json) for enhancement
+    project_context: str | None = None
 
 class PromptEnhanceResponse(BaseModel):
     original_prompt: str
@@ -20,6 +25,15 @@ class PromptEnhanceResponse(BaseModel):
     from_cache: bool
 
 class PromptCacheCreate(BaseModel):
+    original_prompt: str
+    enhanced_prompt: str
+    project_id: str | None = None
+
+
+class PromptHistoryCreate(BaseModel):
+    project_id: str
+    user_id: uuid.UUID
+    session_id: uuid.UUID | None
     original_prompt: str
     enhanced_prompt: str
 

@@ -1,8 +1,10 @@
+import hashlib
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database.session import SessionLocal
 from app.schemas import prompt as schemas
 from app.graphs.enhance_graph import enhancement_graph
+from app.crud import prompt_cache as crud
 
 router = APIRouter()
 
@@ -13,18 +15,38 @@ def get_db():
     finally:
         db.close()
 
+
+def resolve_project_id(workspace_path: str | None, project_id: str | None) -> str | None:
+    """Resolve project_id: use request project_id if set, else derive from workspace_path."""
+    if project_id:
+        return project_id
+    if not workspace_path or not workspace_path.strip():
+        return None
+    normalized = workspace_path.strip().lower().replace("\\", "/")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:32]
+
+
 @router.post("/enhance", response_model=schemas.PromptEnhanceResponse)
 def enhance_prompt_endpoint(
     request: schemas.PromptEnhanceRequest,
     db: Session = Depends(get_db)
 ):
+    project_id = resolve_project_id(request.workspace_path, request.project_id)
+    recent_prompts: list[tuple[str, str]] = []
+    if project_id:
+        recent_prompts = crud.get_recent_prompts_for_project(
+            db, project_id=project_id, user_id=request.user_id, limit=5
+        )
     inputs = {
         "original_prompt": request.true_original_prompt if request.is_reroll and request.true_original_prompt else request.original_prompt,
         "user_id": request.user_id,
         "session_id": request.session_id,
         "db": db,
         "is_reroll": request.is_reroll,
-        "previous_enhancement": request.original_prompt if request.is_reroll else None
+        "previous_enhancement": request.original_prompt if request.is_reroll else None,
+        "project_id": project_id,
+        "project_context": request.project_context,
+        "recent_prompts": recent_prompts,
     }
     
     try:

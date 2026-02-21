@@ -159,6 +159,23 @@ Once PromptBoost is running (either EXE or CLI):
    - Click **🔄 Reject** to get a different version
 6. **Paste** (Ctrl+V) wherever you need it!
 
+#### Project-scoped memory (optional)
+
+To get **continuity** (the enhancer remembers your recent prompts per project) and **project context** (README, package.json, etc.):
+
+1. **Set your workspace path** using one of these:
+   - **Environment variable:** Set before starting the client:
+     ```powershell
+     $env:PROMPTBOOST_WORKSPACE = "D:\path\to\your\project"
+     ```
+   - **Config file:** In `user_config.json` (next to the exe or in `enhancer_client/`), add:
+     ```json
+     "workspace_path": "D:\\path\\to\\your\\project"
+     ```
+2. Restart the client. Enhancements from that project will use the last 5 prompts and project files (README, package.json, requirements.txt, etc.) for better, consistent results.
+
+---
+
 #### Example
 
 **Input:**
@@ -318,6 +335,11 @@ Create `enhancer_client/.env`:
 API_BASE_URL=https://your-backend-url.onrender.com/api/v1
 ```
 
+Optional – project-scoped memory (prompt history + project context per folder):
+
+- Set env var `PROMPTBOOST_WORKSPACE` to your project root, or
+- In `user_config.json`: `"workspace_path": "C:\\path\\to\\project"`
+
 ---
 
 ## 🧪 Testing the Connection
@@ -373,6 +395,18 @@ curl https://your-backend-url.onrender.com/
 - ✅ Verify API keys are set correctly on backend
 - ✅ Check backend logs for API errors
 
+### Alembic / migrations: "Unable to create process" or "No script_location"
+
+**Symptoms:** `alembic upgrade head` fails with a Python path error or missing config.
+
+**Solutions:**
+- Run from the **repo root** (where `alembic.ini` is), not from `server/`:
+  ```bash
+  cd D:\promptboost
+  python -m alembic upgrade head
+  ```
+- Use `python -m alembic` instead of the `alembic` executable to avoid wrong Python path.
+
 ### Dialog Box Not Appearing
 
 **Symptoms:** Enhancement works but no feedback dialog
@@ -388,6 +422,7 @@ curl https://your-backend-url.onrender.com/
 
 - **[RENDER_NEON_DEPLOYMENT.md](RENDER_NEON_DEPLOYMENT.md)** - Complete guide for deploying to Render with Neon database
 - **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Detailed feature overview and roadmap
+- **[docs/project_memory_and_rag_plan.md](docs/project_memory_and_rag_plan.md)** - Project-scoped memory and RAG (Option A) design and implementation plan
 
 ---
 
@@ -430,7 +465,8 @@ curl https://your-backend-url.onrender.com/
 5. **Initialize database:**
    ```bash
    python scripts/create_db.py
-   alembic upgrade head
+   # Run migrations from repo root (alembic.ini lives here)
+   python -m alembic upgrade head
    ```
 
 6. **Train ML models (optional):**
@@ -438,10 +474,9 @@ curl https://your-backend-url.onrender.com/
    python scripts/train_preference_model.py
    ```
 
-7. **Run server:**
+7. **Run server** (from repo root):
    ```bash
-   cd server
-   uvicorn main:app --reload
+   python -m uvicorn server.main:app --reload
    ```
 
 8. **Run client (in another terminal):**

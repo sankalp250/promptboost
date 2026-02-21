@@ -38,6 +38,7 @@ import platform
 from enhancer_client.enhancer.api_client import enhance_prompt_from_api, send_feedback_to_api
 from enhancer_client.enhancer.notifier import show_notification
 from enhancer_client.enhancer.config import settings
+from enhancer_client.enhancer.project_context import gather_project_context
 from enhancer_client.enhancer.state import (
     set_last_session_id,
     set_last_prompts,
@@ -95,7 +96,9 @@ def process_clipboard():
             user_id=user_id,
             session_id=session_id,
             is_reroll=False,
-            original_prompt=prompt_to_enhance
+            original_prompt=prompt_to_enhance,
+            workspace_path=settings.WORKSPACE_PATH,
+            project_context=gather_project_context(settings.WORKSPACE_PATH) if settings.WORKSPACE_PATH else None,
         )
 
         if enhanced_text:

@@ -41,7 +41,9 @@ USER_CONFIG_PATH = APP_DIR / "user_config.json"  # Always save user config next 
 
 class Settings(BaseSettings):
     API_BASE_URL: str = "http://localhost:8000/api/v1"
-    USER_ID: uuid.UUID | None = None # Add user_id to our settings
+    USER_ID: uuid.UUID | None = None  # Add user_id to our settings
+    # Optional workspace path for project-scoped memory (env: PROMPTBOOST_WORKSPACE or user_config.json)
+    WORKSPACE_PATH: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_PATH,
@@ -75,6 +77,21 @@ def load_or_create_user_id() -> uuid.UUID:
             return new_user_id
 
 
+def load_workspace_path() -> str | None:
+    """Load workspace path from user_config.json if present; env PROMPTBOOST_WORKSPACE overrides."""
+    env_path = os.environ.get("PROMPTBOOST_WORKSPACE", "").strip()
+    if env_path:
+        return env_path
+    try:
+        with open(USER_CONFIG_PATH, "r") as f:
+            data = json.load(f)
+            return data.get("workspace_path") or None
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return None
+
+
 settings = Settings()
-# --- NEW: Load the user ID when the application starts ---
 settings.USER_ID = load_or_create_user_id()
+# Optional: set from env or user_config.json for project-scoped prompt history
+if settings.WORKSPACE_PATH is None:
+    settings.WORKSPACE_PATH = load_workspace_path()

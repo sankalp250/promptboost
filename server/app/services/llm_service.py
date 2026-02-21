@@ -107,7 +107,7 @@ Write a single FastAPI endpoint at `/create-payment-intent` that:
 </EXAMPLE>
 </EXAMPLES>
 
-<TASK>
+{recent_prompts_section}{project_context_section}<TASK>
 <persona>{persona}</persona>
 <user_prompt>{user_prompt}</user_prompt>
 <ENHANCED_PROMPT>
@@ -137,7 +137,7 @@ Neon-soaked futuristic megacity at midnight, towering arcology skylines wrapped 
 </ENHANCED_PROMPT>
 </EXAMPLE>
 
-<TASK>
+{recent_prompts_section}{project_context_section}<TASK>
 <persona>{persona}</persona>
 <user_prompt>{user_prompt}</user_prompt>
 <ENHANCED_PROMPT>
@@ -240,38 +240,62 @@ def clean_llm_output(raw_output: str) -> str:
     
     return cleaned
 
-def get_enhanced_prompt(user_prompt: str, is_reroll: bool = False, previous_enhancement: str | None = None) -> str | None:
+def _format_recent_prompts_section(recent_prompts: list[tuple[str, str]] | None) -> str:
+    if not recent_prompts:
+        return ""
+    lines = [f"Original: {o[:200]}{'...' if len(o) > 200 else ''}\nEnhanced: {e[:200]}{'...' if len(e) > 200 else ''}" for o, e in recent_prompts]
+    return "<CONTEXT_FROM_THIS_PROJECT>\nThe user has recently used these prompts in this project (for continuity):\n" + "\n---\n".join(lines) + "\n</CONTEXT_FROM_THIS_PROJECT>\n\n"
+
+
+def _format_project_context_section(project_context: str | None) -> str:
+    if not project_context or not project_context.strip():
+        return ""
+    return "<PROJECT_CONTEXT>\n" + project_context.strip() + "\n</PROJECT_CONTEXT>\n\n"
+
+
+def get_enhanced_prompt(
+    user_prompt: str,
+    is_reroll: bool = False,
+    previous_enhancement: str | None = None,
+    recent_prompts: list[tuple[str, str]] | None = None,
+    project_context: str | None = None,
+) -> str | None:
     if not primary_llm:
         return "Server configuration error: Primary LLM (Groq) not initialized."
-    
+
     persona = detect_context(user_prompt)
     prompt_is_image = is_image_prompt(user_prompt)
     logger.info(f"Detected persona: {persona}")
     logger.info("Detected image prompt" if prompt_is_image else "Detected text/code prompt")
-    
+
     prompt_body = IMAGE_PROMPT_TEMPLATE if prompt_is_image else ENHANCEMENT_PROMPT_TEMPLATE
-    
-    # Modify template for rerolls
+    recent_prompts_section = _format_recent_prompts_section(recent_prompts)
+    project_context_section = _format_project_context_section(project_context)
+
+    base_vars = {
+        "user_prompt": user_prompt,
+        "persona": persona,
+        "recent_prompts_section": recent_prompts_section,
+        "project_context_section": project_context_section,
+    }
+
     if is_reroll and previous_enhancement:
         prompt_body = prompt_body + REROLL_INSTRUCTION
         prompt_template = ChatPromptTemplate.from_template(prompt_body)
-        template_vars = {
-            "user_prompt": user_prompt,
-            "persona": persona,
-            "previous_enhancement": previous_enhancement,
-        }
+        template_vars = {**base_vars, "previous_enhancement": previous_enhancement}
     else:
         prompt_template = ChatPromptTemplate.from_template(prompt_body)
-        template_vars = {"user_prompt": user_prompt, "persona": persona}
+        template_vars = base_vars
 
     try:
-        logger.info(f"Attempting enhancement with Primary LLM (Groq)... {'(REROLL)' if is_reroll else ''}")
-        # Use higher temperature for rerolls to encourage more variation
+        logger.info(
+            f"Attempting enhancement with Primary LLM (Groq)... {'(REROLL)' if is_reroll else ''} "
+            f"(recent_prompts={len(recent_prompts or [])}, project_context={bool(project_context)})"
+        )
         llm_to_use = primary_llm
         if is_reroll:
-            # Create a new LLM instance with higher temperature for rerolls
             llm_to_use = ChatGroq(
-                temperature=1.0,  # Higher temperature for more variation in rerolls
+                temperature=1.0,
                 groq_api_key=settings.GROQ_API_KEY,
                 model_name="llama-3.1-8b-instant"
             )
