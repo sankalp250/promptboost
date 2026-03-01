@@ -23,6 +23,10 @@ httpx
 
 alembic
 
+# Vector Database and Embedding API
+chromadb
+google-generativeai
+
 # ... (keep all existing lines)
 
 # For ML Model Training

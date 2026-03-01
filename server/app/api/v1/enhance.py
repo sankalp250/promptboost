@@ -37,6 +37,17 @@ def enhance_prompt_endpoint(
         recent_prompts = crud.get_recent_prompts_for_project(
             db, project_id=project_id, user_id=request.user_id, limit=5
         )
+    # NEW: Fetch similar chunks from Vector DB
+    from app.services.vector_db import vector_db
+    rag_context = ""
+    if project_id:
+        rag_context = vector_db.query_project_context(project_id, request.original_prompt, n_results=5)
+    
+    # Combine static context with RAG context
+    full_project_context = request.project_context or ""
+    if rag_context:
+        full_project_context += f"\n\n--- Relevant Code Snippets from Repository ---\n{rag_context}"
+    
     inputs = {
         "original_prompt": request.true_original_prompt if request.is_reroll and request.true_original_prompt else request.original_prompt,
         "user_id": request.user_id,
@@ -45,7 +56,7 @@ def enhance_prompt_endpoint(
         "is_reroll": request.is_reroll,
         "previous_enhancement": request.original_prompt if request.is_reroll else None,
         "project_id": project_id,
-        "project_context": request.project_context,
+        "project_context": full_project_context if full_project_context else None,
         "recent_prompts": recent_prompts,
     }
     

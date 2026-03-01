@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.api.v1 import enhance as enhance_api, feedback as feedback_api
+from app.api.v1 import enhance as enhance_api, feedback as feedback_api, project as project_api
 from app.core.config import settings
 from app.services import ml_inference_service # <-- Import our new service
 
@@ -37,6 +37,7 @@ app.add_middleware(
 # Routers (unchanged)
 app.include_router(enhance_api.router, prefix="/api/v1", tags=["enhancement"])
 app.include_router(feedback_api.router, prefix="/api/v1", tags=["feedback"])
+app.include_router(project_api.router, prefix="/api/v1", tags=["project"])
 
 # Health Check (unchanged)
 @app.get("/", tags=["Health Check"])
