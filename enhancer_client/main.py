@@ -217,6 +217,15 @@ def start_client_app():
     warmup_thread = threading.Thread(target=warmup_api, daemon=True)
     warmup_thread.start()
 
+    # Automatically sync the codebase in the background
+    from enhancer_client.enhancer.sync import sync_workspace_to_server
+    def run_auto_sync():
+        logger.info("Initializing automatic background codebase sync...")
+        sync_workspace_to_server()
+        
+    sync_thread = threading.Thread(target=run_auto_sync, daemon=True)
+    sync_thread.start()
+
     # Start clipboard monitoring in background thread
     monitor_thread = threading.Thread(target=clipboard_monitor_loop, daemon=True)
     monitor_thread.start()
