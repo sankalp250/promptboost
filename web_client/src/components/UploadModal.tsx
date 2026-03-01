@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { UploadCloud02 } from '@untitledui/icons'
+import { useRouter } from 'next/navigation'
 
 interface UploadModalProps {
     onClose: () => void
 }
 
 export default function UploadModal({ onClose }: UploadModalProps) {
+    const router = useRouter()
     const [file, setFile] = useState<File | null>(null)
     const [uploading, setUploading] = useState(false)
     const [projectId, setProjectId] = useState('')
@@ -34,8 +36,11 @@ export default function UploadModal({ onClose }: UploadModalProps) {
             })
 
             if (response.ok) {
-                setMessage("✅ Upload successful! The server is syncing your codebase in the background.")
-                setTimeout(() => onClose(), 2000)
+                setMessage("✅ Upload successful! Redirecting to chat...")
+                setTimeout(() => {
+                    onClose()
+                    router.push(`/dashboard/chat/${projectId}`)
+                }, 1500)
             } else {
                 const errorData = await response.json()
                 setMessage(`❌ Upload failed: ${errorData.detail || 'Server logic error'}`)
